@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Schedule Settings — AgentQueue{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-6">Scheduling Settings</h1>
+{% if schedule %}
+<div class="max-w-lg bg-gray-800 rounded-xl p-6 space-y-4">
+  <div class="flex justify-between text-sm">
+    <span class="text-gray-400">Idle threshold</span>
+    <span class="text-white">{{ schedule.idle_threshold_minutes }} minutes</span>
+  </div>
+  <div class="flex justify-between text-sm">
+    <span class="text-gray-400">Away threshold</span>
+    <span class="text-white">{{ schedule.away_threshold_hours }} hours</span>
+  </div>
+  <div class="flex justify-between text-sm">
+    <span class="text-gray-400">Token spreading</span>
+    <span class="text-white">{{ schedule.enable_token_spreading|yesno:"Enabled,Disabled" }}</span>
+  </div>
+  <a href="/admin/scheduling/schedule/{{ schedule.pk }}/change/"
+     class="block text-center border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-sm transition-colors mt-4">
+    Edit in Admin
+  </a>
+</div>
+{% else %}
+<p class="text-gray-500">No schedule configured. <a href="/admin/scheduling/schedule/add/" class="text-indigo-400">Add one in admin.</a></p>
+{% endif %}
+{% endblock %}

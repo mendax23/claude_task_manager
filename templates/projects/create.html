@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}New Project — AgentQueue{% endblock %}
+{% block content %}
+<div class="max-w-lg">
+  <h1 class="text-xl font-semibold mb-6">Add Project</h1>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label class="block text-sm text-gray-400 mb-1">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-sm">Add Project</button>
+      <a href="{% url 'projects:list' %}" class="text-gray-400 hover:text-white px-4 py-2 text-sm">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

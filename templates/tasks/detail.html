@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — AgentQueue{% endblock %}
+{% block content %}
+<div class="max-w-3xl">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'dashboard:index' %}" class="text-gray-500 hover:text-white">&larr;</a>
+    <h1 class="text-xl font-semibold text-white">{{ task.title }}</h1>
+    <span class="ml-auto text-xs bg-gray-700 px-3 py-1 rounded-full text-gray-400">{{ task.status }}</span>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+    <div class="bg-gray-800 rounded-lg p-4">
+      <p class="text-gray-500 text-xs mb-1">Project</p>
+      <p class="text-white">{{ task.project.name }}</p>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-4">
+      <p class="text-gray-500 text-xs mb-1">Type</p>
+      <p class="text-white">{{ task.get_task_type_display }}</p>
+    </div>
+  </div>
+
+  <div class="bg-gray-800 rounded-lg p-4 mb-6">
+    <p class="text-gray-500 text-xs mb-2">Prompt</p>
+    <pre class="text-sm text-gray-300 whitespace-pre-wrap font-mono">{{ task.prompt }}</pre>
+  </div>
+
+  <div class="flex gap-2 mb-8">
+    {% if task.status in 'backlog,scheduled,failed' %}
+    <button hx-post="{% url 'tasks:trigger' task.pk %}"
+            hx-target="body"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm">
+      Run Now
+    </button>
+    {% endif %}
+  </div>
+
+  <h2 class="text-sm font-medium text-gray-400 mb-3">Run History</h2>
+  <div class="space-y-2">
+    {% for run in runs %}
+    <div class="bg-gray-800 rounded-lg p-4">
+      <div class="flex items-center gap-4 mb-2">
+        <span class="text-xs font-mono text-gray-500">#{{ run.pk }}</span>
+        <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">{{ run.status }}</span>
+        <span class="text-xs text-gray-500">{{ run.started_at }}</span>
+        {% if run.tokens_used %}<span class="ml-auto text-xs text-gray-500">{{ run.tokens_used }} tokens</span>{% endif %}
+      </div>
+      {% if run.output_log %}
+      <pre class="text-xs text-gray-400 font-mono whitespace-pre-wrap line-clamp-5">{{ run.output_log|truncatechars:500 }}</pre>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="text-gray-600 text-sm">No runs yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

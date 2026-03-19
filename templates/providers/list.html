@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Providers — AgentQueue{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-semibold">LLM Providers</h1>
+  <a href="/admin/providers/llmconfig/add/" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg">+ Add Provider</a>
+</div>
+<div class="space-y-3">
+  {% for provider in providers %}
+  <div class="bg-gray-800 rounded-xl p-5 flex items-center gap-4">
+    <div class="flex-1">
+      <div class="flex items-center gap-2">
+        <h2 class="font-medium text-white">{{ provider.name }}</h2>
+        {% if provider.is_default %}<span class="text-xs bg-indigo-900/50 text-indigo-400 px-2 py-0.5 rounded">default</span>{% endif %}
+      </div>
+      <p class="text-xs text-gray-500 mt-0.5">{{ provider.get_provider_type_display }} — {{ provider.model_name|default:"(no model)" }}</p>
+    </div>
+    <button hx-post="{% url 'providers:health_check' provider.pk %}"
+            hx-swap="none"
+            class="text-xs border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
+      Test Connection
+    </button>
+  </div>
+  {% empty %}
+  <p class="text-gray-500 text-center py-12">No providers configured. Run <code class="bg-gray-800 px-1 rounded">make setup</code> to get started.</p>
+  {% endfor %}
+</div>
+{% endblock %}

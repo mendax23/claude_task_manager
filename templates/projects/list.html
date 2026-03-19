@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Projects — AgentQueue{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-semibold">Projects</h1>
+  <a href="{% url 'projects:create' %}" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg">+ New Project</a>
+</div>
+<div class="grid grid-cols-3 gap-4">
+  {% for project in projects %}
+  <a href="{% url 'projects:detail' project.slug %}"
+     class="bg-gray-800 rounded-xl p-5 hover:bg-gray-750 transition-colors block">
+    <h2 class="font-medium text-white mb-1">{{ project.name }}</h2>
+    <p class="text-xs text-gray-500 font-mono mb-3">{{ project.repo_path|truncatechars:40 }}</p>
+    <p class="text-sm text-gray-400">{{ project.tasks.count }} tasks</p>
+  </a>
+  {% empty %}
+  <p class="text-gray-500 col-span-3 text-center py-12">No projects yet. <a href="{% url 'projects:create' %}" class="text-indigo-400">Add a repo</a></p>
+  {% endfor %}
+</div>
+{% endblock %}

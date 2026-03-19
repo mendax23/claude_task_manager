@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Token Budget — AgentQueue{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-6">Token Budgets</h1>
+{% for budget in budgets %}
+<div class="max-w-lg bg-gray-800 rounded-xl p-6 mb-4">
+  <h2 class="font-medium text-white mb-4">{{ budget.provider.name }}</h2>
+  <div class="mb-4">
+    <div class="flex justify-between text-sm mb-1">
+      <span class="text-gray-400">Weekly usage</span>
+      <span class="text-white">{{ budget.tokens_used_this_week|floatformat:0 }} / {{ budget.weekly_limit|floatformat:0 }}</span>
+    </div>
+    <div class="h-2 bg-gray-700 rounded-full">
+      <div class="h-2 bg-indigo-500 rounded-full transition-all" style="width: {{ budget.pct_used|floatformat:0 }}%"></div>
+    </div>
+  </div>
+  <a href="/admin/scheduling/tokenbudget/{{ budget.pk }}/change/"
+     class="text-indigo-400 text-xs hover:underline">Edit settings</a>
+</div>
+{% empty %}
+<p class="text-gray-500">No token budgets configured. <a href="/admin/scheduling/tokenbudget/add/" class="text-indigo-400">Add one.</a></p>
+{% endfor %}
+{% endblock %}
