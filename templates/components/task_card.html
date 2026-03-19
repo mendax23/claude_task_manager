@@ -1,0 +1,106 @@
+{% load humanize %}
+<div
+  class="task-card bg-gray-800 rounded-lg p-3 cursor-grab active:cursor-grabbing
+         border border-gray-700 hover:border-gray-600 transition-all duration-200
+         {% if task.status == 'in_progress' %}border-l-2 border-l-amber-500{% endif %}"
+  data-task-id="{{ task.pk }}"
+  id="task-card-{{ task.pk }}"
+  x-data="taskCard({{ task.pk }})"
+  hx-get="/tasks/{{ task.pk }}/"
+  hx-trigger="server:update"
+  hx-target="#task-card-{{ task.pk }}"
+  hx-swap="outerHTML"
+>
+  <!-- Priority strip + repo badge -->
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-xs px-1.5 py-0.5 rounded text-gray-400
+      {% if task.project %}bg-indigo-900/50 text-indigo-300{% endif %}">
+      {{ task.project.name|truncatechars:20 }}
+    </span>
+    <span class="text-xs
+      {% if task.priority == 4 %}text-red-400
+      {% elif task.priority == 3 %}text-amber-400
+      {% elif task.priority == 2 %}text-blue-400
+      {% else %}text-gray-500{% endif %}">
+      {% if task.priority == 4 %}URGENT
+      {% elif task.priority == 3 %}HIGH
+      {% elif task.priority == 2 %}MEDIUM
+      {% else %}LOW{% endif %}
+    </span>
+  </div>
+
+  <!-- Title -->
+  <p class="text-sm font-medium text-gray-100 mb-2 leading-snug">{{ task.title|truncatechars:80 }}</p>
+
+  <!-- Task type badge -->
+  <div class="flex items-center gap-1.5 mb-2">
+    {% if task.task_type == 'evergreen' %}
+      <span class="text-xs bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded">evergreen</span>
+    {% elif task.task_type == 'chained' %}
+      <span class="text-xs bg-purple-900/40 text-purple-400 px-1.5 py-0.5 rounded">chained</span>
+    {% endif %}
+    {% for tag in task.tags|slice:":2" %}
+      <span class="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded">{{ tag }}</span>
+    {% endfor %}
+  </div>
+
+  <!-- Progress bar (visible when in_progress) -->
+  {% if task.status == 'in_progress' %}
+  <div class="mb-2">
+    <div class="w-full h-1 bg-gray-700 rounded-full overflow-hidden">
+      <div class="h-full bg-amber-500 rounded-full animate-pulse" style="width: 45%"></div>
+    </div>
+    <!-- Live output tail -->
+    <p class="text-xs text-gray-500 mt-1 font-mono truncate"
+       x-text="task.outputTail || 'Running...'">Running...</p>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="flex items-center gap-1 mt-2 pt-2 border-t border-gray-700/50">
+    {% if task.status == 'in_progress' %}
+      <!-- Jump to tmux -->
+      <button
+        onclick="copyTmuxCommand({{ task.pk }})"
+        class="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-900/20 transition-colors"
+        title="Copy tmux attach command"
+      >
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3"/>
+        </svg>
+        Jump in
+      </button>
+      <!-- Cancel -->
+      <button
+        hx-delete="/tasks/{{ task.pk }}/cancel/"
+        hx-confirm="Stop this task?"
+        hx-target="#task-card-{{ task.pk }}"
+        hx-swap="outerHTML"
+        class="ml-auto text-xs text-red-500 hover:text-red-400 px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
+      >Cancel</button>
+    {% elif task.status in 'backlog,scheduled,failed' %}
+      <!-- Trigger -->
+      <button
+        hx-post="/tasks/{{ task.pk }}/trigger/"
+        hx-target="#task-card-{{ task.pk }}"
+        hx-swap="outerHTML"
+        class="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-900/20 transition-colors"
+      >
+        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        Run now
+      </button>
+    {% elif task.status == 'done' %}
+      <span class="text-xs text-green-500">{{ task.completed_at|naturaltime }}</span>
+    {% endif %}
+
+    <!-- Detail link -->
+    <a href="/tasks/{{ task.pk }}/"
+       class="ml-auto text-gray-600 hover:text-gray-400 p-1 rounded transition-colors">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</div>

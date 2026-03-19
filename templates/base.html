@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" x-data>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AgentQueue{% endblock %}</title>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.4/Sortable.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .animate-pulse-border { animation: pulseBorder 2s ease-in-out infinite; }
+    @keyframes pulseBorder {
+      0%, 100% { border-left-color: rgb(245, 158, 11); }
+      50% { border-left-color: rgb(251, 191, 36); }
+    }
+    .sortable-ghost { opacity: 0.4; transform: scale(0.98); }
+    .sortable-drag { transform: rotate(2deg); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen" x-data="agentqueue" x-init="init()">
+
+  {% include "components/token_budget_bar.html" %}
+
+  <nav class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center gap-6">
+    <a href="{% url 'dashboard:index' %}" class="text-white font-bold text-lg tracking-tight">
+      AgentQueue
+    </a>
+    <a href="{% url 'projects:list' %}" class="text-gray-400 hover:text-white text-sm transition-colors">Projects</a>
+    <a href="{% url 'tasks:list' %}" class="text-gray-400 hover:text-white text-sm transition-colors">Tasks</a>
+    <a href="{% url 'scheduling:settings' %}" class="text-gray-400 hover:text-white text-sm transition-colors">Schedule</a>
+    <a href="/admin/" class="text-gray-400 hover:text-white text-sm transition-colors ml-auto">Admin</a>
+  </nav>
+
+  <main class="p-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toast notifications -->
+  <div x-cloak class="fixed bottom-4 right-4 space-y-2 z-50" x-show="notifications.length > 0">
+    <template x-for="(n, i) in notifications" :key="i">
+      <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-xl flex items-center gap-3 max-w-sm"
+           x-transition>
+        <span class="text-sm" x-text="n.message"></span>
+        <button @click="notifications.splice(i, 1)" class="text-gray-500 hover:text-white ml-auto">&times;</button>
+      </div>
+    </template>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

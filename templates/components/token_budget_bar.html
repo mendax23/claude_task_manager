@@ -1,0 +1,39 @@
+<div class="bg-gray-900 border-b border-gray-800 px-6 py-2 flex items-center gap-6 text-xs text-gray-400"
+     x-data>
+
+  <!-- Weekly budget -->
+  <div class="flex items-center gap-2">
+    <span class="text-gray-500">Week:</span>
+    <div class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-500"
+           :class="{
+             'bg-green-500': $store.agentqueue.tokenBudget.pctUsed < 60,
+             'bg-yellow-500': $store.agentqueue.tokenBudget.pctUsed >= 60 && $store.agentqueue.tokenBudget.pctUsed < 85,
+             'bg-red-500': $store.agentqueue.tokenBudget.pctUsed >= 85,
+           }"
+           :style="`width: ${$store.agentqueue.tokenBudget.pctUsed}%`">
+      </div>
+    </div>
+    <span x-text="`${$store.agentqueue.tokenBudget.pctUsed.toFixed(0)}%`"></span>
+  </div>
+
+  <!-- Drain mode badge -->
+  <span x-show="$store.agentqueue.tokenBudget.drainMode"
+        class="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded text-xs animate-pulse">
+    Drain Mode
+  </span>
+
+  <!-- Idle status -->
+  <div class="flex items-center gap-1.5 ml-auto">
+    <div class="w-1.5 h-1.5 rounded-full"
+         :class="$store.agentqueue.isIdle ? 'bg-amber-400' : 'bg-green-400'"></div>
+    <span x-text="$store.agentqueue.isIdle ? 'Idle' : 'Active'"></span>
+  </div>
+
+  <!-- WS connection -->
+  <div class="flex items-center gap-1.5">
+    <div class="w-1.5 h-1.5 rounded-full"
+         :class="$store.agentqueue.wsConnected ? 'bg-green-400' : 'bg-red-400 animate-pulse'"></div>
+    <span x-text="$store.agentqueue.wsConnected ? 'Live' : 'Reconnecting'"></span>
+  </div>
+</div>
