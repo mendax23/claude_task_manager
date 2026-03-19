@@ -1,12 +1,11 @@
-// AgentQueue Alpine.js global store and component definitions
+// AgentQueue — Alpine.js stores and global utilities
 
 document.addEventListener('alpine:init', () => {
 
-  // Global store
   Alpine.store('agentqueue', {
     wsConnected: false,
     isIdle: false,
-    activeTasks: {},
+    activeTasks: {},   // task_id -> { status, outputLog, outputTail }
     tokenBudget: {
       pctUsed: 0,
       weeklyUsed: 0,
@@ -14,156 +13,113 @@ document.addEventListener('alpine:init', () => {
       drainMode: false,
     },
     notifications: [],
-    outputChunks: [],
-    activeOutputTaskId: null,
-    outputPanelOpen: false,
+    _ws: null,
 
     init() {
-      this.connectWebSocket();
+      this._connect();
     },
 
-    connectWebSocket() {
+    _connect() {
+      if (this._ws && this._ws.readyState < 2) return;
+
       const ws = new WebSocket(`ws://${location.host}/ws/dashboard/`);
 
-      ws.onopen = () => {
-        this.wsConnected = true;
-        console.log('[AgentQueue] WebSocket connected');
-      };
-
+      ws.onopen = () => { this.wsConnected = true; };
       ws.onclose = () => {
         this.wsConnected = false;
-        console.log('[AgentQueue] WebSocket disconnected, reconnecting in 3s...');
-        setTimeout(() => this.connectWebSocket(), 3000);
+        setTimeout(() => this._connect(), 3000);
       };
-
-      ws.onerror = (e) => {
-        console.warn('[AgentQueue] WebSocket error:', e);
-      };
-
+      ws.onerror = () => { this.wsConnected = false; };
       ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data);
-          this.handleMessage(msg);
-        } catch (err) {
-          console.warn('[AgentQueue] Bad WS message:', e.data);
-        }
+        try { this._handle(JSON.parse(e.data)); } catch (_) {}
       };
 
       this._ws = ws;
     },
 
-    handleMessage(msg) {
+    _handle(msg) {
       switch (msg.type) {
-        case 'task_update':
-          this.activeTasks[msg.task_id] = {
-            ...(this.activeTasks[msg.task_id] || {}),
-            ...msg.data,
-          };
-          // Trigger HTMX refresh of the affected card
+        case 'task_update': {
+          const existing = this.activeTasks[msg.task_id] || {};
+          this.activeTasks[msg.task_id] = { ...existing, ...msg.data };
           const card = document.getElementById(`task-card-${msg.task_id}`);
           if (card) htmx.trigger(card, 'server:update');
           break;
-
-        case 'budget_update':
+        }
+        case 'budget_update': {
           this.tokenBudget = { ...this.tokenBudget, ...msg.data };
           break;
-
-        case 'idle_update':
+        }
+        case 'idle_update': {
           this.isIdle = msg.is_idle;
           break;
-
-        case 'output_chunk':
-          if (!this.activeTasks[msg.task_id]) {
-            this.activeTasks[msg.task_id] = {};
+        }
+        case 'output_chunk': {
+          if (!this.activeTasks[msg.task_id]) this.activeTasks[msg.task_id] = {};
+          const t = this.activeTasks[msg.task_id];
+          t.outputLog = (t.outputLog || '') + msg.text;
+          const lines = msg.text.split('\n').filter(l => l.trim());
+          if (lines.length) t.outputTail = lines[lines.length - 1];
+          const container = document.getElementById('output-scroll-container');
+          if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+          break;
+        }
+        case 'task_complete': {
+          if (!this.activeTasks[msg.task_id]) this.activeTasks[msg.task_id] = {};
+          this.activeTasks[msg.task_id].status = 'done';
+          break;
+        }
+        case 'notification': {
+          this.notify(msg.message);
+          if (msg.suggestions) {
+            window.dispatchEvent(new CustomEvent('suggestion-ready', {
+              detail: { suggestions: msg.suggestions, projectId: msg.project_id }
+            }));
           }
-          const task = this.activeTasks[msg.task_id];
-          task.outputLog = (task.outputLog || '') + msg.text;
-          task.outputTail = msg.text.split('\n').pop();
           break;
-
-        case 'task_complete':
-          if (this.activeTasks[msg.task_id]) {
-            this.activeTasks[msg.task_id].status = 'done';
-          }
-          break;
-
-        case 'notification':
-          this.addNotification(msg.message);
-          break;
+        }
       }
     },
 
-    addNotification(message, timeout = 5000) {
-      const notification = { message, id: Date.now() };
-      this.notifications.push(notification);
+    notify(message, ms = 6000) {
+      const id = Date.now();
+      this.notifications.push({ id, message });
       setTimeout(() => {
-        const idx = this.notifications.findIndex(n => n.id === notification.id);
+        const idx = this.notifications.findIndex(n => n.id === id);
         if (idx !== -1) this.notifications.splice(idx, 1);
-      }, timeout);
-    },
-
-    openOutput(taskId) {
-      this.activeOutputTaskId = taskId;
-      this.outputPanelOpen = true;
-      // Subscribe to task-specific WS channel
-      subscribeToTaskOutput(taskId);
+      }, ms);
     },
   });
 
-  // Per-card Alpine component
-  Alpine.data('taskCard', (taskId) => ({
-    taskId,
-    get task() {
-      return Alpine.store('agentqueue').activeTasks[taskId] || {};
-    },
-    get isRunning() {
-      return this.task.status === 'in_progress';
-    },
-  }));
+});  // end alpine:init
 
-  // Full-page Alpine component (used on body)
-  Alpine.data('agentqueue', () => ({
-    notifications: [],
-    isIdle: false,
-    wsConnected: false,
-    tokenBudget: { pctUsed: 0, drainMode: false },
-    activeTasks: {},
-    outputPanelOpen: false,
-    activeOutputTaskId: null,
 
-    init() {
-      // Sync with store
-      this.$watch('$store.agentqueue', (store) => {
-        this.notifications = store.notifications;
-        this.isIdle = store.isIdle;
-        this.wsConnected = store.wsConnected;
-        this.tokenBudget = store.tokenBudget;
-      }, { immediate: true });
+// ---- Global helpers ----
 
-      Alpine.store('agentqueue').init();
-    },
-  }));
-});
-
-// Copy tmux attach command to clipboard
 async function copyTmuxCommand(taskId) {
   try {
     const res = await fetch(`/tasks/${taskId}/tmux-attach/`);
     const data = await res.json();
     await navigator.clipboard.writeText(data.command);
-    Alpine.store('agentqueue').addNotification(`Copied: ${data.command}`);
-  } catch (e) {
-    console.warn('copyTmuxCommand failed:', e);
+    Alpine.store('agentqueue').notify(`Copied: ${data.command}`);
+  } catch (_) {
+    Alpine.store('agentqueue').notify('Could not copy command.');
   }
 }
 
-// Subscribe to task-specific output WebSocket
-let taskWs = null;
+// Per-task WebSocket for live output (opened when output panel opens)
+let _taskWs = null;
 function subscribeToTaskOutput(taskId) {
-  if (taskWs) taskWs.close();
-  taskWs = new WebSocket(`ws://${location.host}/ws/tasks/${taskId}/`);
-  taskWs.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    Alpine.store('agentqueue').handleMessage(msg);
+  if (_taskWs) { _taskWs.close(); _taskWs = null; }
+  if (!taskId) return;
+  _taskWs = new WebSocket(`ws://${location.host}/ws/tasks/${taskId}/`);
+  _taskWs.onmessage = (e) => {
+    try { Alpine.store('agentqueue')._handle(JSON.parse(e.data)); } catch (_) {}
   };
+  _taskWs.onclose = () => { _taskWs = null; };
 }
+
+// Boot: init store once Alpine is ready
+document.addEventListener('alpine:initialized', () => {
+  Alpine.store('agentqueue').init();
+});
