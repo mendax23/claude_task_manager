@@ -1,20 +1,37 @@
 <!DOCTYPE html>
-<html lang="en" x-data style="font-size: 17px;">
+<html lang="en" x-data style="font-size: 20px;">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AgentQueue{% endblock %}</title>
 
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontSize: {
+            'xs':   ['0.7rem',  { lineHeight: '1.1rem'  }],
+            'sm':   ['0.82rem', { lineHeight: '1.25rem' }],
+            'base': ['1rem',    { lineHeight: '1.6rem'  }],
+            'lg':   ['1.15rem', { lineHeight: '1.75rem' }],
+            'xl':   ['1.3rem',  { lineHeight: '1.85rem' }],
+            '2xl':  ['1.6rem',  { lineHeight: '2.1rem'  }],
+            '3xl':  ['2rem',    { lineHeight: '2.5rem'  }],
+          }
+        }
+      }
+    }
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.4/Sortable.min.js"></script>
 
   <style>
+    * { box-sizing: border-box; }
     [x-cloak] { display: none !important; }
 
     /* ── Kanban animations ── */
-    .animate-pulse-border { animation: pulseBorder 2s ease-in-out infinite; }
     @keyframes pulseBorder {
       0%, 100% { border-left-color: rgb(245,158,11); }
       50%       { border-left-color: rgb(251,191,36); }
@@ -24,13 +41,13 @@
       100% { transform: translateX(400%); }
     }
     .sortable-ghost { opacity: 0.35; transform: scale(0.97); border: 1px dashed rgba(99,102,241,.4); }
-    .sortable-drag  { transform: rotate(1.5deg); box-shadow: 0 24px 48px rgba(0,0,0,.4); }
+    .sortable-drag  { transform: rotate(1.5deg); box-shadow: 0 24px 48px rgba(0,0,0,.5); }
 
-    /* ── HTMX spinner ── */
+    /* ── HTMX ── */
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline; }
 
-    /* ── Global form element styling ── */
+    /* ── Global form inputs — catches all {{ field }} widgets ── */
     main input[type=text],
     main input[type=number],
     main input[type=url],
@@ -41,9 +58,9 @@
     main input[type=time] {
       width: 100%;
       background: rgb(31,41,55);
-      border: 1px solid rgba(55,65,81,.9);
-      border-radius: .75rem;
-      padding: .7rem 1.1rem;
+      border: 1px solid rgba(75,85,99,.7);
+      border-radius: .875rem;
+      padding: .8rem 1.2rem;
       color: white;
       font-size: 1rem;
       outline: none;
@@ -52,9 +69,9 @@
     main select {
       width: 100%;
       background: rgb(31,41,55);
-      border: 1px solid rgba(55,65,81,.9);
-      border-radius: .75rem;
-      padding: .7rem 1.1rem;
+      border: 1px solid rgba(75,85,99,.7);
+      border-radius: .875rem;
+      padding: .8rem 1.2rem;
       color: white;
       font-size: 1rem;
       outline: none;
@@ -65,9 +82,9 @@
     main textarea {
       width: 100%;
       background: rgb(31,41,55);
-      border: 1px solid rgba(55,65,81,.9);
-      border-radius: .75rem;
-      padding: .8rem 1.1rem;
+      border: 1px solid rgba(75,85,99,.7);
+      border-radius: .875rem;
+      padding: .9rem 1.2rem;
       color: white;
       font-size: 1rem;
       outline: none;
@@ -76,29 +93,30 @@
     }
     main input:focus, main select:focus, main textarea:focus {
       border-color: rgb(99,102,241);
-      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.18);
     }
     main input::placeholder, main textarea::placeholder {
-      color: rgba(107,114,128,.8);
+      color: rgba(107,114,128,.7);
     }
 
-    /* ── Nav active link ── */
-    nav a.nav-active { color: white; position: relative; }
-    nav a.nav-active::after {
+    /* ── Nav ── */
+    .nav-link { position: relative; display: flex; align-items: center; height: 100%; padding: 0 1rem; font-size: .85rem; font-weight: 500; transition: color .15s; }
+    .nav-link:not(.nav-active) { color: rgba(156,163,175,1); }
+    .nav-link:not(.nav-active):hover { color: white; }
+    .nav-active { color: white; }
+    .nav-active::after {
       content: '';
       position: absolute;
-      bottom: -1px;
-      left: 0.75rem; right: 0.75rem;
+      bottom: 0; left: .75rem; right: .75rem;
       height: 2px;
       background: rgb(99,102,241);
-      border-radius: 2px;
+      border-radius: 2px 2px 0 0;
     }
 
     /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(75,85,99,.6); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(107,114,128,.8); }
+    ::-webkit-scrollbar-thumb { background: rgba(75,85,99,.5); border-radius: 9999px; }
   </style>
 
   {% block extra_head %}{% endblock %}
@@ -107,76 +125,56 @@
 
   {% include "components/token_budget_bar.html" %}
 
-  <nav class="bg-gray-900/95 backdrop-blur border-b border-gray-800/80 px-8 flex items-center gap-1 sticky top-0 z-20 h-14">
+  <!-- NAV -->
+  <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-20 flex items-stretch px-8" style="height: 62px;">
     <!-- Logo -->
-    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 mr-6">
-      <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/50 shrink-0">
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 mr-8 shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/60">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
       </div>
-      <span class="font-bold text-white tracking-tight text-base">AgentQueue</span>
+      <span class="font-bold text-white" style="font-size: 1.05rem; letter-spacing: -.01em;">AgentQueue</span>
     </a>
 
-    <!-- Nav links -->
+    <!-- Links -->
     <a href="{% url 'dashboard:index' %}"
-       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
-              {% if request.path == '/' %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
-      Dashboard
-    </a>
+       class="nav-link {% if request.path == '/' %}nav-active{% endif %}">Dashboard</a>
     <a href="{% url 'projects:list' %}"
-       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
-              {% if 'projects' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
-      Projects
-    </a>
+       class="nav-link {% if 'projects' in request.path %}nav-active{% endif %}">Projects</a>
     <a href="{% url 'tasks:list' %}"
-       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
-              {% if 'tasks' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
-      Tasks
-    </a>
+       class="nav-link {% if 'tasks' in request.path %}nav-active{% endif %}">Tasks</a>
     <a href="{% url 'scheduling:settings' %}"
-       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
-              {% if 'scheduling' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
-      Schedule
-    </a>
+       class="nav-link {% if 'scheduling' in request.path %}nav-active{% endif %}">Schedule</a>
     <a href="{% url 'providers:list' %}"
-       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
-              {% if 'providers' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
-      Providers
-    </a>
+       class="nav-link {% if 'providers' in request.path %}nav-active{% endif %}">Providers</a>
 
     <div class="flex-1"></div>
-    <a href="/admin/"
-       class="text-xs text-gray-600 hover:text-gray-400 px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors">
+    <a href="/admin/" class="nav-link text-gray-600 hover:text-gray-400" style="font-size: .75rem;">
       Admin ↗
     </a>
   </nav>
 
-  <main class="p-8 max-w-screen-2xl mx-auto">
+  <main class="px-10 py-10 max-w-screen-2xl mx-auto">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Toast notifications -->
-  <div x-cloak class="fixed bottom-6 right-6 space-y-2 z-50 min-w-[300px]"
+  <!-- Toasts -->
+  <div x-cloak class="fixed bottom-6 right-6 space-y-2 z-50" style="min-width: 320px;"
        x-show="$store.agentqueue.notifications.length > 0">
     <template x-for="(n, i) in $store.agentqueue.notifications" :key="i">
-      <div class="flex items-start gap-3 bg-gray-800 border border-gray-700/80 rounded-xl px-5 py-4
-                  shadow-2xl shadow-black/30 backdrop-blur"
-           x-transition:enter="transition ease-out duration-300"
-           x-transition:enter-start="opacity-0 translate-y-2 scale-95"
-           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-           x-transition:leave="transition ease-in duration-200"
+      <div class="flex items-start gap-3 bg-gray-800 border border-gray-700 rounded-2xl px-5 py-4 shadow-2xl"
+           x-transition:enter="transition ease-out duration-250"
+           x-transition:enter-start="opacity-0 translate-y-2"
+           x-transition:enter-end="opacity-100 translate-y-0"
+           x-transition:leave="transition ease-in duration-150"
            x-transition:leave-start="opacity-100"
-           x-transition:leave-end="opacity-0 translate-y-1">
-        <div class="w-2 h-2 rounded-full mt-1.5 shrink-0"
-             :class="n.type === 'error' ? 'bg-red-400' : n.type === 'success' ? 'bg-green-400' : 'bg-indigo-400'"></div>
+           x-transition:leave-end="opacity-0">
+        <div class="w-2 h-2 rounded-full mt-2 shrink-0"
+             :class="n.type==='error' ? 'bg-red-400' : n.type==='success' ? 'bg-green-400' : 'bg-indigo-400'"></div>
         <span class="text-sm text-gray-200 flex-1" x-text="n.message"></span>
-        <button @click="$store.agentqueue.notifications.splice(i, 1)"
-                class="text-gray-600 hover:text-gray-300 transition-colors mt-0.5">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
+        <button @click="$store.agentqueue.notifications.splice(i,1)"
+                class="text-gray-600 hover:text-white transition-colors ml-2 mt-0.5">✕</button>
       </div>
     </template>
   </div>

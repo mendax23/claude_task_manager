@@ -1,4 +1,5 @@
-<div class="bg-gray-900/80 backdrop-blur border-b border-gray-800/60 px-8 py-2 flex items-center gap-8 text-xs"
+<div class="bg-gray-900/70 border-b border-gray-800/60 px-10 py-2.5 flex items-center gap-8"
+     style="font-size: .78rem;"
      id="token-budget-bar"
      hx-get="{% url 'dashboard:budget_bar' %}"
      hx-trigger="every 30s"
@@ -6,8 +7,8 @@
 
   {% if budget %}
   <div class="flex items-center gap-3">
-    <span class="text-gray-500 font-medium tracking-wide">Week</span>
-    <div class="w-32 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+    <span class="text-gray-500 font-medium tracking-wide uppercase" style="font-size: .65rem; letter-spacing: .08em;">Week</span>
+    <div class="w-28 h-1.5 bg-gray-800 rounded-full overflow-hidden">
       <div class="h-full rounded-full transition-all duration-700
                   {% if budget.pct_used < 50 %}bg-green-500
                   {% elif budget.pct_used < 75 %}bg-yellow-500
@@ -17,7 +18,7 @@
            :style="`width: ${$store.agentqueue.tokenBudget.pctUsed || {{ budget.pct_used|floatformat:0 }}}%`">
       </div>
     </div>
-    <span class="font-semibold tabular-nums"
+    <span class="font-bold tabular-nums"
           :class="{
             'text-green-400':  $store.agentqueue.tokenBudget.pctUsed < 50,
             'text-yellow-400': $store.agentqueue.tokenBudget.pctUsed >= 50 && $store.agentqueue.tokenBudget.pctUsed < 75,
@@ -29,29 +30,28 @@
     </span>
   </div>
   {% else %}
-  <div class="flex items-center gap-2">
-    <span class="text-gray-600">Budget:</span>
-    <a href="/admin/scheduling/tokenbudget/add/" class="text-indigo-500 hover:text-indigo-400 transition-colors">configure</a>
+  <div class="flex items-center gap-2 text-gray-600">
+    Budget: <a href="/admin/scheduling/tokenbudget/add/" class="text-indigo-500 hover:text-indigo-400">configure</a>
   </div>
   {% endif %}
 
-  <span class="hidden bg-orange-500/15 border border-orange-500/30 text-orange-400 px-2.5 py-0.5 rounded-lg font-medium animate-pulse"
-        :class="{ '!block': $store.agentqueue.tokenBudget.drainMode }">
-    Drain Mode
+  <span class="hidden bg-orange-500/15 border border-orange-500/30 text-orange-400 px-2.5 py-0.5 rounded-lg font-semibold animate-pulse"
+        :class="{ '!inline': $store.agentqueue.tokenBudget.drainMode }">
+    ⚡ Drain Mode
   </span>
 
-  <div class="flex items-center gap-2">
-    <span class="text-gray-600">Running</span>
-    <span class="text-gray-300 font-semibold tabular-nums"
-          x-text="Object.values($store.agentqueue.activeTasks).filter(t => t.status === 'in_progress').length">0</span>
+  <div class="flex items-center gap-2 text-gray-500">
+    Running
+    <span class="text-gray-200 font-bold tabular-nums"
+          x-text="Object.values($store.agentqueue.activeTasks).filter(t=>t.status==='in_progress').length">0</span>
   </div>
 
   <div class="flex-1"></div>
 
   <div class="flex items-center gap-2">
-    <div class="w-2 h-2 rounded-full transition-colors"
+    <div class="w-2 h-2 rounded-full"
          :class="$store.agentqueue.isIdle ? 'bg-amber-400' : 'bg-green-400 animate-pulse'"></div>
-    <span class="font-medium"
+    <span class="font-semibold"
           :class="$store.agentqueue.isIdle ? 'text-amber-400' : 'text-gray-500'"
           x-text="$store.agentqueue.isIdle ? 'Idle' : 'Active'">
       {% if is_idle %}Idle{% else %}Active{% endif %}

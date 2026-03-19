@@ -1,28 +1,32 @@
 {% load humanize %}
-<div class="task-card group relative bg-gray-800 rounded-xl p-3.5 cursor-grab active:cursor-grabbing
+<div class="task-card group relative bg-gray-800 rounded-2xl p-4 cursor-grab active:cursor-grabbing
             border border-gray-700/60 hover:border-gray-600 transition-all duration-200
-            {% if task.status == 'in_progress' %}border-l-[3px] border-l-amber-500{% elif task.status == 'done' %}border-l-[3px] border-l-green-600 opacity-70{% elif task.priority == 4 %}border-l-[3px] border-l-red-500{% elif task.priority == 3 %}border-l-[3px] border-l-orange-500{% else %}border-l-[3px] border-l-transparent{% endif %}"
+            {% if task.status == 'in_progress' %}border-l-[3px] border-l-amber-500
+            {% elif task.status == 'done' %}border-l-[3px] border-l-green-600 opacity-70
+            {% elif task.priority == 4 %}border-l-[3px] border-l-red-500
+            {% elif task.priority == 3 %}border-l-[3px] border-l-orange-500
+            {% else %}border-l-[3px] border-l-transparent{% endif %}"
      data-task-id="{{ task.pk }}"
      id="task-card-{{ task.pk }}"
-     x-data="{ get task() { return Alpine.store('agentqueue').activeTasks[{{ task.pk }}] || {} }, expanded: false }"
+     x-data="{ get task() { return Alpine.store('agentqueue').activeTasks[{{ task.pk }}] || {} } }"
      hx-get="{% url 'tasks:detail' task.pk %}?partial=card"
      hx-trigger="server:update"
      hx-target="#task-card-{{ task.pk }}"
      hx-swap="outerHTML">
 
-  <!-- Top row: project badge + priority -->
-  <div class="flex items-center justify-between mb-2 gap-2">
-    <span class="text-xs px-2 py-0.5 rounded-md bg-indigo-900/40 text-indigo-300 truncate max-w-[120px]"
+  <!-- Top row: project + priority -->
+  <div class="flex items-center justify-between mb-3 gap-2">
+    <span class="text-sm px-2.5 py-1 rounded-lg bg-indigo-900/40 text-indigo-300 truncate max-w-[140px] font-medium"
           title="{{ task.project.name }}">
       {{ task.project.name }}
     </span>
-    <div class="flex items-center gap-1.5 shrink-0">
+    <div class="flex items-center gap-2 shrink-0">
       {% if task.task_type == 'evergreen' %}
-      <span class="text-xs text-emerald-400" title="Evergreen — repeats automatically">↺</span>
+      <span class="text-sm text-emerald-400" title="Evergreen">↺</span>
       {% elif task.task_type == 'chained' %}
-      <span class="text-xs text-purple-400" title="Chained task {{ task.chain_order }}">⛓</span>
+      <span class="text-sm text-purple-400" title="Chained">⛓</span>
       {% endif %}
-      <span class="text-xs font-medium
+      <span class="text-sm font-bold
         {% if task.priority == 4 %}text-red-400
         {% elif task.priority == 3 %}text-orange-400
         {% elif task.priority == 2 %}text-blue-400
@@ -33,33 +37,29 @@
   </div>
 
   <!-- Title -->
-  <p class="text-sm font-medium text-gray-100 leading-snug mb-2 line-clamp-2"
+  <p class="text-base font-semibold text-gray-100 leading-snug mb-3 line-clamp-2"
      title="{{ task.title }}">{{ task.title }}</p>
 
   <!-- Tags -->
   {% if task.tags %}
-  <div class="flex flex-wrap gap-1 mb-2">
+  <div class="flex flex-wrap gap-1.5 mb-3">
     {% for tag in task.tags|slice:":3" %}
-    <span class="text-xs bg-gray-700/60 text-gray-500 px-1.5 py-0.5 rounded">{{ tag }}</span>
+    <span class="text-xs bg-gray-700/60 text-gray-400 px-2 py-0.5 rounded-lg">{{ tag }}</span>
     {% endfor %}
   </div>
   {% endif %}
 
-  <!-- Running progress indicator -->
+  <!-- Running indicator -->
   {% if task.status == 'in_progress' %}
-  <div class="mb-2.5">
-    <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-      <span class="text-amber-400 font-medium flex items-center gap-1">
-        <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse inline-block"></span>
-        Running
-      </span>
+  <div class="mb-3">
+    <div class="flex items-center gap-2 text-sm text-amber-400 font-semibold mb-1.5">
+      <span class="w-2 h-2 bg-amber-400 rounded-full animate-pulse inline-block"></span>
+      Running
     </div>
-    <!-- Animated running bar -->
-    <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
+    <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
       <div class="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full"
            style="animation: runningBar 2s ease-in-out infinite; width: 30%"></div>
     </div>
-    <!-- Live output tail -->
     <p class="text-xs text-gray-600 font-mono mt-1.5 truncate"
        x-text="task.outputTail || ''"></p>
   </div>
@@ -67,32 +67,32 @@
 
   <!-- Done timestamp -->
   {% if task.status == 'done' and task.completed_at %}
-  <p class="text-xs text-gray-600 mb-2">{{ task.completed_at|naturaltime }}</p>
+  <p class="text-sm text-gray-600 mb-3">✓ {{ task.completed_at|naturaltime }}</p>
   {% endif %}
 
-  <!-- Scheduled: show next run time -->
+  <!-- Scheduled next run -->
   {% if task.status == 'scheduled' and task.next_run_at %}
-  <p class="text-xs text-blue-500 mb-2">Next: {{ task.next_run_at|naturaltime }}</p>
+  <p class="text-sm text-blue-500 mb-3">Next: {{ task.next_run_at|naturaltime }}</p>
   {% endif %}
 
-  <!-- Actions (appear on hover) -->
-  <div class="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-gray-700/40
+  <!-- Actions -->
+  <div class="flex items-center gap-2 mt-3 pt-3 border-t border-gray-700/40
               opacity-0 group-hover:opacity-100 transition-opacity duration-150">
 
     {% if task.status == 'in_progress' %}
       <button onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-output', { detail: { taskId: {{ task.pk }} } }))"
-              class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded-md transition-colors">
+              class="text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded-xl transition-colors font-medium">
         View log
       </button>
       <button onclick="copyTmuxCommand({{ task.pk }})"
-              class="text-xs bg-amber-600/20 hover:bg-amber-600/40 border border-amber-600/20 text-amber-400 px-2.5 py-1 rounded-md transition-colors">
+              class="text-sm bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/20 text-amber-400 px-3 py-1.5 rounded-xl transition-colors font-medium">
         Jump in
       </button>
       <button hx-post="{% url 'tasks:cancel' task.pk %}"
               hx-target="#task-card-{{ task.pk }}"
               hx-swap="outerHTML"
               onclick="event.stopPropagation()"
-              class="ml-auto text-xs text-red-500 hover:text-red-400 px-2.5 py-1 rounded-md hover:bg-red-900/20 transition-colors">
+              class="ml-auto text-sm text-red-500 hover:text-red-400 px-3 py-1.5 rounded-xl hover:bg-red-900/20 transition-colors font-medium">
         Cancel
       </button>
 
@@ -102,24 +102,15 @@
               hx-swap="outerHTML"
               hx-indicator="#spin-{{ task.pk }}"
               onclick="event.stopPropagation()"
-              class="text-xs bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-600/20 text-indigo-400 px-2.5 py-1 rounded-md transition-colors flex items-center gap-1">
+              class="text-sm bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 font-medium">
         <span id="spin-{{ task.pk }}" class="htmx-indicator">⟳</span>
         Run now
       </button>
       <a href="{% url 'tasks:detail' task.pk %}"
          onclick="event.stopPropagation()"
-         class="ml-auto text-xs text-gray-600 hover:text-gray-400 px-2.5 py-1 rounded-md hover:bg-gray-700 transition-colors">
-        Edit
+         class="ml-auto text-sm text-gray-600 hover:text-gray-300 px-3 py-1.5 rounded-xl hover:bg-gray-700 transition-colors font-medium">
+        Detail →
       </a>
     {% endif %}
   </div>
 </div>
-
-<style>
-@keyframes runningBar {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(400%); }
-}
-.htmx-indicator { display: none; }
-.htmx-request .htmx-indicator { display: inline; }
-</style>
