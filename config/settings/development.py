@@ -21,3 +21,10 @@ REST_FRAMEWORK = {
 
 # Celery eager execution option for tests (override per-test if needed)
 CELERY_TASK_ALWAYS_EAGER = False
+
+# Use in-memory channel layer for development (no Redis required)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}

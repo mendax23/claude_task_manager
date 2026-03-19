@@ -7,8 +7,7 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = [
             "project", "title", "prompt", "task_type", "priority",
-            "llm_config", "recurrence_rule", "estimated_tokens", "tags",
-            "chain", "chain_order",
+            "llm_config", "recurrence_rule", "estimated_tokens",
         ]
         widgets = {
             "prompt": forms.Textarea(attrs={"rows": 8, "placeholder": "Describe exactly what the AI should do..."}),
