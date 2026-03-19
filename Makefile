@@ -13,7 +13,7 @@ shell:
 	python manage.py shell_plus
 
 dev:
-	daphne -b 127.0.0.1 -p 8000 config.asgi:application
+	daphne -b 127.0.0.1 -p 3333 config.asgi:application
 
 worker:
 	celery -A celery_app worker -l info
