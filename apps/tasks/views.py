@@ -21,6 +21,9 @@ def task_create(request):
 
 def task_detail(request, pk):
     task = get_object_or_404(Task, pk=pk)
+    # HTMX partial: return just the card for live updates
+    if request.GET.get("partial") == "card":
+        return render(request, "tasks/partials/task_card.html", {"task": task})
     runs = task.runs.order_by("-started_at")[:10]
     return render(request, "tasks/detail.html", {"task": task, "runs": runs})
 

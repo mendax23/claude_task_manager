@@ -1,39 +1,75 @@
-<div class="bg-gray-900 border-b border-gray-800 px-6 py-2 flex items-center gap-6 text-xs text-gray-400"
-     x-data>
+<div class="bg-gray-900/80 backdrop-blur border-b border-gray-800 px-6 py-2.5 flex items-center gap-6 text-xs"
+     id="token-budget-bar"
+     hx-get="{% url 'dashboard:budget_bar' %}"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML">
 
-  <!-- Weekly budget -->
-  <div class="flex items-center gap-2">
-    <span class="text-gray-500">Week:</span>
-    <div class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-      <div class="h-full rounded-full transition-all duration-500"
-           :class="{
-             'bg-green-500': $store.agentqueue.tokenBudget.pctUsed < 60,
-             'bg-yellow-500': $store.agentqueue.tokenBudget.pctUsed >= 60 && $store.agentqueue.tokenBudget.pctUsed < 85,
-             'bg-red-500': $store.agentqueue.tokenBudget.pctUsed >= 85,
-           }"
-           :style="`width: ${$store.agentqueue.tokenBudget.pctUsed}%`">
+  <!-- Weekly budget bar -->
+  {% if budget %}
+  <div class="flex items-center gap-2.5">
+    <span class="text-gray-500 font-medium">Week</span>
+    <div class="w-28 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-700
+                  {% if budget.pct_used < 50 %}bg-green-500
+                  {% elif budget.pct_used < 75 %}bg-yellow-500
+                  {% elif budget.pct_used < 90 %}bg-orange-500
+                  {% else %}bg-red-500{% endif %}"
+           style="width: {{ budget.pct_used|floatformat:0 }}%"
+           :style="`width: ${$store.agentqueue.tokenBudget.pctUsed || {{ budget.pct_used|floatformat:0 }}}%`">
       </div>
     </div>
-    <span x-text="`${$store.agentqueue.tokenBudget.pctUsed.toFixed(0)}%`"></span>
+    <span class="text-gray-400 tabular-nums"
+          :class="{
+            'text-green-400': $store.agentqueue.tokenBudget.pctUsed < 50,
+            'text-yellow-400': $store.agentqueue.tokenBudget.pctUsed >= 50 && $store.agentqueue.tokenBudget.pctUsed < 75,
+            'text-orange-400': $store.agentqueue.tokenBudget.pctUsed >= 75 && $store.agentqueue.tokenBudget.pctUsed < 90,
+            'text-red-400': $store.agentqueue.tokenBudget.pctUsed >= 90
+          }"
+          :x-text="`${($store.agentqueue.tokenBudget.pctUsed || {{ budget.pct_used|floatformat:0 }}).toFixed(0)}%`">
+      {{ budget.pct_used|floatformat:0 }}%
+    </span>
   </div>
+  {% else %}
+  <div class="flex items-center gap-2">
+    <span class="text-gray-600">Budget:</span>
+    <a href="/admin/scheduling/tokenbudget/add/" class="text-indigo-500 hover:text-indigo-400">configure</a>
+  </div>
+  {% endif %}
 
   <!-- Drain mode badge -->
-  <span x-show="$store.agentqueue.tokenBudget.drainMode"
-        class="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded text-xs animate-pulse">
+  <span class="hidden bg-orange-500/15 border border-orange-500/30 text-orange-400 px-2 py-0.5 rounded text-xs font-medium animate-pulse"
+        :class="{ 'hidden': !$store.agentqueue.tokenBudget.drainMode }">
     Drain Mode
   </span>
 
-  <!-- Idle status -->
-  <div class="flex items-center gap-1.5 ml-auto">
-    <div class="w-1.5 h-1.5 rounded-full"
-         :class="$store.agentqueue.isIdle ? 'bg-amber-400' : 'bg-green-400'"></div>
-    <span x-text="$store.agentqueue.isIdle ? 'Idle' : 'Active'"></span>
+  <!-- Active tasks -->
+  <div class="flex items-center gap-2">
+    <span class="text-gray-600">Running:</span>
+    <span class="text-gray-300 font-mono"
+          x-text="Object.values($store.agentqueue.activeTasks).filter(t => t.status === 'in_progress').length">
+      0
+    </span>
   </div>
 
-  <!-- WS connection -->
+  <!-- Spacer -->
+  <div class="flex-1"></div>
+
+  <!-- Idle indicator -->
+  <div class="flex items-center gap-2">
+    <div class="w-2 h-2 rounded-full transition-colors"
+         :class="$store.agentqueue.isIdle ? 'bg-amber-400' : 'bg-green-400 animate-pulse'"></div>
+    <span class="text-gray-500"
+          :class="$store.agentqueue.isIdle ? 'text-amber-400' : 'text-gray-500'"
+          x-text="$store.agentqueue.isIdle ? 'Idle' : 'Active'">
+      {% if is_idle %}Idle{% else %}Active{% endif %}
+    </span>
+  </div>
+
+  <!-- WebSocket status -->
   <div class="flex items-center gap-1.5">
     <div class="w-1.5 h-1.5 rounded-full"
-         :class="$store.agentqueue.wsConnected ? 'bg-green-400' : 'bg-red-400 animate-pulse'"></div>
-    <span x-text="$store.agentqueue.wsConnected ? 'Live' : 'Reconnecting'"></span>
+         :class="$store.agentqueue.wsConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'"></div>
+    <span class="text-gray-600"
+          x-text="$store.agentqueue.wsConnected ? 'Live' : 'Reconnecting'">Live</span>
   </div>
 </div>

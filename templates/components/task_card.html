@@ -1,99 +1,125 @@
-<div class="task-card bg-gray-800 rounded-lg p-3 cursor-grab active:cursor-grabbing
-            border-l-4 transition-all duration-200 hover:bg-gray-750 group
-            {% if task.status == 'in_progress' %}border-amber-500 animate-pulse-border{% elif task.status == 'done' %}border-green-600{% elif task.status == 'failed' %}border-red-600{% elif task.priority == 4 %}border-red-500{% elif task.priority == 3 %}border-orange-500{% elif task.priority == 2 %}border-blue-500{% else %}border-gray-700{% endif %}"
+{% load humanize %}
+<div class="task-card group relative bg-gray-800 rounded-xl p-3.5 cursor-grab active:cursor-grabbing
+            border border-gray-700/60 hover:border-gray-600 transition-all duration-200
+            {% if task.status == 'in_progress' %}border-l-[3px] border-l-amber-500{% elif task.status == 'done' %}border-l-[3px] border-l-green-600 opacity-70{% elif task.priority == 4 %}border-l-[3px] border-l-red-500{% elif task.priority == 3 %}border-l-[3px] border-l-orange-500{% else %}border-l-[3px] border-l-transparent{% endif %}"
      data-task-id="{{ task.pk }}"
      id="task-card-{{ task.pk }}"
-     x-data="taskCard({{ task.pk }})">
+     x-data="{ get task() { return Alpine.store('agentqueue').activeTasks[{{ task.pk }}] || {} }, expanded: false }"
+     hx-get="{% url 'tasks:detail' task.pk %}?partial=card"
+     hx-trigger="server:update"
+     hx-target="#task-card-{{ task.pk }}"
+     hx-swap="outerHTML">
 
-  <!-- Header row -->
-  <div class="flex items-start justify-between gap-2 mb-2">
-    <span class="text-sm text-white font-medium leading-snug line-clamp-2">{{ task.title }}</span>
-    <span class="shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">
-      {{ task.project.name|truncatechars:12 }}
+  <!-- Top row: project badge + priority -->
+  <div class="flex items-center justify-between mb-2 gap-2">
+    <span class="text-xs px-2 py-0.5 rounded-md bg-indigo-900/40 text-indigo-300 truncate max-w-[120px]"
+          title="{{ task.project.name }}">
+      {{ task.project.name }}
     </span>
+    <div class="flex items-center gap-1.5 shrink-0">
+      {% if task.task_type == 'evergreen' %}
+      <span class="text-xs text-emerald-400" title="Evergreen — repeats automatically">↺</span>
+      {% elif task.task_type == 'chained' %}
+      <span class="text-xs text-purple-400" title="Chained task {{ task.chain_order }}">⛓</span>
+      {% endif %}
+      <span class="text-xs font-medium
+        {% if task.priority == 4 %}text-red-400
+        {% elif task.priority == 3 %}text-orange-400
+        {% elif task.priority == 2 %}text-blue-400
+        {% else %}text-gray-600{% endif %}">
+        {% if task.priority == 4 %}P1{% elif task.priority == 3 %}P2{% elif task.priority == 2 %}P3{% else %}P4{% endif %}
+      </span>
+    </div>
   </div>
+
+  <!-- Title -->
+  <p class="text-sm font-medium text-gray-100 leading-snug mb-2 line-clamp-2"
+     title="{{ task.title }}">{{ task.title }}</p>
 
   <!-- Tags -->
   {% if task.tags %}
   <div class="flex flex-wrap gap-1 mb-2">
-    {% for tag in task.tags %}
-    <span class="text-xs bg-gray-700/50 text-gray-500 px-1.5 rounded">{{ tag }}</span>
+    {% for tag in task.tags|slice:":3" %}
+    <span class="text-xs bg-gray-700/60 text-gray-500 px-1.5 py-0.5 rounded">{{ tag }}</span>
     {% endfor %}
   </div>
   {% endif %}
 
-  <!-- Task type badge -->
-  <div class="flex items-center gap-2 mb-2">
-    {% if task.task_type == 'evergreen' %}
-    <span class="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-      evergreen
-    </span>
-    {% elif task.task_type == 'chained' %}
-    <span class="text-xs text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
-      chain {{ task.chain_order }}
-    </span>
-    {% endif %}
-  </div>
-
-  <!-- Progress bar (visible when in progress) -->
+  <!-- Running progress indicator -->
   {% if task.status == 'in_progress' %}
-  <div class="mb-2">
-    <div class="flex justify-between text-xs text-gray-500 mb-1">
-      <span>Running...</span>
-      <span x-text="task.outputTail ? task.outputTail.split('\n').length + ' lines' : ''"></span>
+  <div class="mb-2.5">
+    <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+      <span class="text-amber-400 font-medium flex items-center gap-1">
+        <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse inline-block"></span>
+        Running
+      </span>
     </div>
+    <!-- Animated running bar -->
     <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
-      <div class="h-full bg-amber-500 rounded-full animate-pulse w-1/3 origin-left"
-           style="animation: runningBar 1.5s ease-in-out infinite;">
-      </div>
+      <div class="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full"
+           style="animation: runningBar 2s ease-in-out infinite; width: 30%"></div>
     </div>
-    <!-- Output tail preview -->
-    <div x-show="task.outputTail" class="mt-1 text-xs text-gray-500 font-mono truncate"
-         x-text="task.outputTail"></div>
+    <!-- Live output tail -->
+    <p class="text-xs text-gray-600 font-mono mt-1.5 truncate"
+       x-text="task.outputTail || ''"></p>
   </div>
   {% endif %}
 
-  <!-- Actions (visible on hover) -->
-  <div class="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+  <!-- Done timestamp -->
+  {% if task.status == 'done' and task.completed_at %}
+  <p class="text-xs text-gray-600 mb-2">{{ task.completed_at|naturaltime }}</p>
+  {% endif %}
+
+  <!-- Scheduled: show next run time -->
+  {% if task.status == 'scheduled' and task.next_run_at %}
+  <p class="text-xs text-blue-500 mb-2">Next: {{ task.next_run_at|naturaltime }}</p>
+  {% endif %}
+
+  <!-- Actions (appear on hover) -->
+  <div class="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-gray-700/40
+              opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+
     {% if task.status == 'in_progress' %}
-      <!-- Jump to tmux -->
-      <button onclick="copyTmuxCommand({{ task.pk }})"
-              class="text-xs bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 px-2 py-1 rounded transition-colors">
-        Jump In
+      <button onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-output', { detail: { taskId: {{ task.pk }} } }))"
+              class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded-md transition-colors">
+        View log
       </button>
-      <!-- Cancel -->
+      <button onclick="copyTmuxCommand({{ task.pk }})"
+              class="text-xs bg-amber-600/20 hover:bg-amber-600/40 border border-amber-600/20 text-amber-400 px-2.5 py-1 rounded-md transition-colors">
+        Jump in
+      </button>
       <button hx-post="{% url 'tasks:cancel' task.pk %}"
               hx-target="#task-card-{{ task.pk }}"
               hx-swap="outerHTML"
-              hx-confirm="Stop this task?"
-              class="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 px-2 py-1 rounded transition-colors">
+              onclick="event.stopPropagation()"
+              class="ml-auto text-xs text-red-500 hover:text-red-400 px-2.5 py-1 rounded-md hover:bg-red-900/20 transition-colors">
         Cancel
       </button>
-    {% elif task.status in 'backlog scheduled failed' %}
-      <!-- Manual trigger -->
+
+    {% elif task.status != 'done' %}
       <button hx-post="{% url 'tasks:trigger' task.pk %}"
               hx-target="#task-card-{{ task.pk }}"
               hx-swap="outerHTML"
-              hx-indicator="#spinner-{{ task.pk }}"
-              class="text-xs bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 px-2 py-1 rounded transition-colors">
-        Run Now
+              hx-indicator="#spin-{{ task.pk }}"
+              onclick="event.stopPropagation()"
+              class="text-xs bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-600/20 text-indigo-400 px-2.5 py-1 rounded-md transition-colors flex items-center gap-1">
+        <span id="spin-{{ task.pk }}" class="htmx-indicator">⟳</span>
+        Run now
       </button>
+      <a href="{% url 'tasks:detail' task.pk %}"
+         onclick="event.stopPropagation()"
+         class="ml-auto text-xs text-gray-600 hover:text-gray-400 px-2.5 py-1 rounded-md hover:bg-gray-700 transition-colors">
+        Edit
+      </a>
     {% endif %}
-    <!-- View output -->
-    <button @click="$dispatch('open-output', { taskId: {{ task.pk }} })"
-            class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-400 px-2 py-1 rounded transition-colors ml-auto">
-      Log
-    </button>
   </div>
-
-  <!-- Spinner -->
-  <div id="spinner-{{ task.pk }}" class="htmx-indicator text-xs text-gray-500 mt-1">Running...</div>
 </div>
 
 <style>
 @keyframes runningBar {
-  0% { width: 5%; margin-left: 0; }
-  50% { width: 40%; margin-left: 30%; }
-  100% { width: 5%; margin-left: 95%; }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
 }
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
 </style>
