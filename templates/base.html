@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" x-data>
+<html lang="en" x-data style="font-size: 17px;">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,7 +30,7 @@
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline; }
 
-    /* ── Global form element fallback (catches {{ field }} rendered widgets) ── */
+    /* ── Global form element styling ── */
     main input[type=text],
     main input[type=number],
     main input[type=url],
@@ -43,9 +43,9 @@
       background: rgb(31,41,55);
       border: 1px solid rgba(55,65,81,.9);
       border-radius: .75rem;
-      padding: .625rem 1rem;
+      padding: .7rem 1.1rem;
       color: white;
-      font-size: .875rem;
+      font-size: 1rem;
       outline: none;
       transition: border-color .15s, box-shadow .15s;
     }
@@ -54,9 +54,9 @@
       background: rgb(31,41,55);
       border: 1px solid rgba(55,65,81,.9);
       border-radius: .75rem;
-      padding: .625rem 1rem;
+      padding: .7rem 1.1rem;
       color: white;
-      font-size: .875rem;
+      font-size: 1rem;
       outline: none;
       appearance: none;
       cursor: pointer;
@@ -67,9 +67,9 @@
       background: rgb(31,41,55);
       border: 1px solid rgba(55,65,81,.9);
       border-radius: .75rem;
-      padding: .75rem 1rem;
+      padding: .8rem 1.1rem;
       color: white;
-      font-size: .875rem;
+      font-size: 1rem;
       outline: none;
       resize: vertical;
       transition: border-color .15s, box-shadow .15s;
@@ -83,15 +83,12 @@
     }
 
     /* ── Nav active link ── */
-    nav a.nav-active {
-      color: white;
-      position: relative;
-    }
+    nav a.nav-active { color: white; position: relative; }
     nav a.nav-active::after {
       content: '';
       position: absolute;
-      bottom: -12px;
-      left: 0; right: 0;
+      bottom: -1px;
+      left: 0.75rem; right: 0.75rem;
       height: 2px;
       background: rgb(99,102,241);
       border-radius: 2px;
@@ -110,46 +107,43 @@
 
   {% include "components/token_budget_bar.html" %}
 
-  <nav class="bg-gray-900/95 backdrop-blur border-b border-gray-800/80 px-6 py-0 flex items-center gap-1 sticky top-0 z-20">
+  <nav class="bg-gray-900/95 backdrop-blur border-b border-gray-800/80 px-8 flex items-center gap-1 sticky top-0 z-20 h-14">
     <!-- Logo -->
-    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-2.5 mr-4 py-3.5">
-      <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/50">
+    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 mr-6">
+      <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/50 shrink-0">
         <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
       </div>
-      <span class="font-bold text-white tracking-tight">AgentQueue</span>
+      <span class="font-bold text-white tracking-tight text-base">AgentQueue</span>
     </a>
 
     <!-- Nav links -->
-    {% with request.resolver_match.app_name as app %}
     <a href="{% url 'dashboard:index' %}"
-       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
               {% if request.path == '/' %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
       Dashboard
     </a>
     <a href="{% url 'projects:list' %}"
-       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
               {% if 'projects' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
       Projects
     </a>
     <a href="{% url 'tasks:list' %}"
-       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
               {% if 'tasks' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
       Tasks
     </a>
     <a href="{% url 'scheduling:settings' %}"
-       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
               {% if 'scheduling' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
       Schedule
     </a>
     <a href="{% url 'providers:list' %}"
-       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+       class="text-sm font-medium px-3 h-14 flex items-center transition-colors relative
               {% if 'providers' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
       Providers
     </a>
-    {% endwith %}
 
     <div class="flex-1"></div>
     <a href="/admin/"
@@ -158,16 +152,15 @@
     </a>
   </nav>
 
-  <main class="p-6 max-w-screen-2xl mx-auto">
+  <main class="p-8 max-w-screen-2xl mx-auto">
     {% block content %}{% endblock %}
   </main>
 
   <!-- Toast notifications -->
-  <div x-cloak
-       class="fixed bottom-5 right-5 space-y-2 z-50 min-w-[280px]"
+  <div x-cloak class="fixed bottom-6 right-6 space-y-2 z-50 min-w-[300px]"
        x-show="$store.agentqueue.notifications.length > 0">
     <template x-for="(n, i) in $store.agentqueue.notifications" :key="i">
-      <div class="flex items-start gap-3 bg-gray-800 border border-gray-700/80 rounded-xl px-4 py-3
+      <div class="flex items-start gap-3 bg-gray-800 border border-gray-700/80 rounded-xl px-5 py-4
                   shadow-2xl shadow-black/30 backdrop-blur"
            x-transition:enter="transition ease-out duration-300"
            x-transition:enter-start="opacity-0 translate-y-2 scale-95"
@@ -175,13 +168,12 @@
            x-transition:leave="transition ease-in duration-200"
            x-transition:leave-start="opacity-100"
            x-transition:leave-end="opacity-0 translate-y-1">
-        <div class="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-             :class="n.type === 'error' ? 'bg-red-400' : n.type === 'success' ? 'bg-green-400' : 'bg-indigo-400'">
-        </div>
+        <div class="w-2 h-2 rounded-full mt-1.5 shrink-0"
+             :class="n.type === 'error' ? 'bg-red-400' : n.type === 'success' ? 'bg-green-400' : 'bg-indigo-400'"></div>
         <span class="text-sm text-gray-200 flex-1" x-text="n.message"></span>
         <button @click="$store.agentqueue.notifications.splice(i, 1)"
                 class="text-gray-600 hover:text-gray-300 transition-colors mt-0.5">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>

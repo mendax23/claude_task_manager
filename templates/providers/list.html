@@ -1,28 +1,102 @@
 {% extends "base.html" %}
 {% block title %}Providers — AgentQueue{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold">LLM Providers</h1>
-  <a href="/admin/providers/llmconfig/add/" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg">+ Add Provider</a>
+
+<div class="flex items-center justify-between mb-8">
+  <div>
+    <h1 class="text-2xl font-bold text-white">LLM Providers</h1>
+    <p class="text-sm text-gray-500 mt-0.5">Manage AI backends for your tasks</p>
+  </div>
+  <a href="/admin/providers/llmconfig/add/"
+     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+            px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+    </svg>
+    Add Provider
+  </a>
 </div>
+
+{% if providers %}
 <div class="space-y-3">
   {% for provider in providers %}
-  <div class="bg-gray-800 rounded-xl p-5 flex items-center gap-4">
-    <div class="flex-1">
-      <div class="flex items-center gap-2">
-        <h2 class="font-medium text-white">{{ provider.name }}</h2>
-        {% if provider.is_default %}<span class="text-xs bg-indigo-900/50 text-indigo-400 px-2 py-0.5 rounded">default</span>{% endif %}
-      </div>
-      <p class="text-xs text-gray-500 mt-0.5">{{ provider.get_provider_type_display }} — {{ provider.model_name|default:"(no model)" }}</p>
+  <div class="group bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 flex items-center gap-5 transition-colors">
+
+    <!-- Icon -->
+    <div class="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center border
+      {% if provider.provider_type == 'claude_max' %}bg-amber-900/20 border-amber-700/30
+      {% elif provider.provider_type == 'anthropic' %}bg-orange-900/20 border-orange-700/30
+      {% elif provider.provider_type == 'openrouter' %}bg-violet-900/20 border-violet-700/30
+      {% else %}bg-teal-900/20 border-teal-700/30{% endif %}">
+      {% if provider.provider_type == 'claude_max' or provider.provider_type == 'anthropic' %}
+      <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      {% elif provider.provider_type == 'openrouter' %}
+      <svg class="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+      {% else %}
+      <svg class="w-5 h-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/>
+      </svg>
+      {% endif %}
     </div>
-    <button hx-post="{% url 'providers:health_check' provider.pk %}"
-            hx-swap="none"
-            class="text-xs border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
-      Test Connection
-    </button>
+
+    <!-- Info -->
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2.5 mb-0.5">
+        <h2 class="font-semibold text-white">{{ provider.name }}</h2>
+        {% if provider.is_default %}
+        <span class="text-xs bg-indigo-900/40 border border-indigo-700/30 text-indigo-400 px-2 py-0.5 rounded-lg font-medium">
+          default
+        </span>
+        {% endif %}
+      </div>
+      <p class="text-xs text-gray-500">
+        {{ provider.get_provider_type_display }}
+        {% if provider.model_name %}<span class="text-gray-700">·</span> <span class="font-mono">{{ provider.model_name }}</span>{% endif %}
+        {% if provider.base_url %}<span class="text-gray-700">·</span> {{ provider.base_url|truncatechars:40 }}{% endif %}
+      </p>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-2 shrink-0">
+      <button hx-post="{% url 'providers:health_check' provider.pk %}"
+              hx-swap="none"
+              class="text-xs border border-gray-700 hover:border-gray-500 text-gray-500 hover:text-gray-300
+                     px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Test
+      </button>
+      <a href="/admin/providers/llmconfig/{{ provider.pk }}/change/"
+         class="text-xs border border-gray-700 hover:border-gray-500 text-gray-500 hover:text-gray-300
+                px-3 py-1.5 rounded-lg transition-colors">
+        Edit
+      </a>
+    </div>
   </div>
-  {% empty %}
-  <p class="text-gray-500 text-center py-12">No providers configured. Run <code class="bg-gray-800 px-1 rounded">make setup</code> to get started.</p>
   {% endfor %}
 </div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
+    <svg class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+    </svg>
+  </div>
+  <p class="text-gray-500 mb-2">No providers configured</p>
+  <p class="text-sm text-gray-600">
+    Run <code class="bg-gray-800 px-2 py-0.5 rounded-lg text-gray-400 text-xs">python manage.py setup_agentqueue</code> to get started
+  </p>
+</div>
+{% endif %}
+
 {% endblock %}

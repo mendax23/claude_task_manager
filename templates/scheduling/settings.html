@@ -1,27 +1,114 @@
 {% extends "base.html" %}
-{% block title %}Schedule Settings — AgentQueue{% endblock %}
+{% block title %}Schedule — AgentQueue{% endblock %}
 {% block content %}
-<h1 class="text-xl font-semibold mb-6">Scheduling Settings</h1>
-{% if schedule %}
-<div class="max-w-lg bg-gray-800 rounded-xl p-6 space-y-4">
-  <div class="flex justify-between text-sm">
-    <span class="text-gray-400">Idle threshold</span>
-    <span class="text-white">{{ schedule.idle_threshold_minutes }} minutes</span>
+
+<div class="flex items-center justify-between mb-8">
+  <div>
+    <h1 class="text-2xl font-bold text-white">Schedule</h1>
+    <p class="text-sm text-gray-500 mt-0.5">Controls when AgentQueue runs tasks automatically</p>
   </div>
-  <div class="flex justify-between text-sm">
-    <span class="text-gray-400">Away threshold</span>
-    <span class="text-white">{{ schedule.away_threshold_hours }} hours</span>
-  </div>
-  <div class="flex justify-between text-sm">
-    <span class="text-gray-400">Token spreading</span>
-    <span class="text-white">{{ schedule.enable_token_spreading|yesno:"Enabled,Disabled" }}</span>
-  </div>
+  {% if schedule %}
   <a href="/admin/scheduling/schedule/{{ schedule.pk }}/change/"
-     class="block text-center border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-sm transition-colors mt-4">
+     class="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500
+            px-4 py-2 rounded-xl transition-colors">
     Edit in Admin
   </a>
+  {% else %}
+  <a href="/admin/scheduling/schedule/add/"
+     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+            px-4 py-2 rounded-xl transition-colors">
+    Configure
+  </a>
+  {% endif %}
 </div>
+
+{% if schedule %}
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+      <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Idle Threshold</p>
+    <p class="text-2xl font-bold text-white">{{ schedule.idle_threshold_minutes }}<span class="text-sm font-normal text-gray-500 ml-1">min</span></p>
+    <p class="text-xs text-gray-600 mt-1">Machine must be idle this long before launching</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+      <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+      </svg>
+    </div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Away Threshold</p>
+    <p class="text-2xl font-bold text-white">{{ schedule.away_threshold_hours }}<span class="text-sm font-normal text-gray-500 ml-1">hr</span></p>
+    <p class="text-xs text-gray-600 mt-1">Long-idle detection (overnight / weekend)</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+      <svg class="w-4 h-4 {% if schedule.enable_token_spreading %}text-green-400{% else %}text-gray-600{% endif %}"
+           fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+    </div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Token Spreading</p>
+    <p class="text-2xl font-bold {% if schedule.enable_token_spreading %}text-green-400{% else %}text-gray-600{% endif %}">
+      {{ schedule.enable_token_spreading|yesno:"Enabled,Disabled" }}
+    </p>
+    <p class="text-xs text-gray-600 mt-1">Spread usage evenly across the week</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+      <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+    </div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</p>
+    <p class="text-2xl font-bold {% if schedule.is_active %}text-green-400{% else %}text-red-400{% endif %}">
+      {{ schedule.is_active|yesno:"Active,Paused" }}
+    </p>
+    <p class="text-xs text-gray-600 mt-1">Schedule is {% if not schedule.is_active %}not {% endif %}running</p>
+  </div>
+
+  {% if schedule.max_run_window_hours %}
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+      <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+    </div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Max Run Window</p>
+    <p class="text-2xl font-bold text-white">{{ schedule.max_run_window_hours }}<span class="text-sm font-normal text-gray-500 ml-1">hr</span></p>
+    <p class="text-xs text-gray-600 mt-1">Max consecutive hours of auto-running</p>
+  </div>
+  {% endif %}
+
+</div>
+
 {% else %}
-<p class="text-gray-500">No schedule configured. <a href="/admin/scheduling/schedule/add/" class="text-indigo-400">Add one in admin.</a></p>
+
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
+    <svg class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  </div>
+  <p class="text-gray-500 mb-2">No schedule configured</p>
+  <a href="/admin/scheduling/schedule/add/" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+    Set one up in admin →
+  </a>
+</div>
+
 {% endif %}
 {% endblock %}

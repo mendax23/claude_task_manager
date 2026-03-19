@@ -1,9 +1,9 @@
 from django import forms
 from .models import Project
 
-_input = "w-full bg-gray-800 border border-gray-700/80 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-colors"
+_input = "w-full bg-gray-800 border border-gray-700/80 rounded-xl px-4 py-3 text-base text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-colors"
 _select = _input + " appearance-none cursor-pointer"
-_textarea = "w-full bg-gray-800 border border-gray-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-colors resize-y"
+_textarea = "w-full bg-gray-800 border border-gray-700/80 rounded-xl px-4 py-3 text-base text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-colors resize-y"
 
 
 class ProjectForm(forms.ModelForm):
