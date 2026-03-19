@@ -1,20 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Projects — AgentQueue{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold">Projects</h1>
-  <a href="{% url 'projects:create' %}" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg">+ New Project</a>
+
+<div class="flex items-center justify-between mb-8">
+  <div>
+    <h1 class="text-2xl font-bold text-white">Projects</h1>
+    <p class="text-sm text-gray-500 mt-0.5">{{ projects|length }} repo{{ projects|length|pluralize }} connected</p>
+  </div>
+  <a href="{% url 'projects:create' %}"
+     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+            px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+    </svg>
+    New Project
+  </a>
 </div>
-<div class="grid grid-cols-3 gap-4">
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
   {% for project in projects %}
   <a href="{% url 'projects:detail' project.slug %}"
-     class="bg-gray-800 rounded-xl p-5 hover:bg-gray-750 transition-colors block">
-    <h2 class="font-medium text-white mb-1">{{ project.name }}</h2>
-    <p class="text-xs text-gray-500 font-mono mb-3">{{ project.repo_path|truncatechars:40 }}</p>
-    <p class="text-sm text-gray-400">{{ project.tasks.count }} tasks</p>
+     class="group relative bg-gray-900 border border-gray-800 hover:border-indigo-500/40
+            rounded-2xl p-5 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-950/30 block">
+
+    <!-- Accent line -->
+    <div class="absolute left-0 top-4 bottom-4 w-0.5 bg-indigo-600 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+    <div class="flex items-start justify-between mb-3">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center shrink-0">
+        <svg class="w-4 h-4 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 11h10M7 15h6"/>
+        </svg>
+      </div>
+      <span class="text-xs text-gray-600 font-mono bg-gray-800 px-2 py-0.5 rounded-lg">
+        {{ project.default_branch }}
+      </span>
+    </div>
+
+    <h2 class="font-semibold text-white mb-1 group-hover:text-indigo-300 transition-colors">{{ project.name }}</h2>
+    <p class="text-xs text-gray-600 font-mono truncate mb-3" title="{{ project.repo_path }}">{{ project.repo_path }}</p>
+
+    {% if project.description %}
+    <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ project.description }}</p>
+    {% endif %}
+
+    <div class="flex items-center gap-3 pt-3 border-t border-gray-800">
+      <span class="text-xs text-gray-500">
+        <span class="text-gray-300 font-medium">{{ project.tasks.count }}</span> tasks
+      </span>
+      {% if project.remote_url %}
+      <span class="text-xs text-indigo-500 ml-auto">↗ remote</span>
+      {% endif %}
+    </div>
   </a>
   {% empty %}
-  <p class="text-gray-500 col-span-3 text-center py-12">No projects yet. <a href="{% url 'projects:create' %}" class="text-indigo-400">Add a repo</a></p>
+  <div class="col-span-3 flex flex-col items-center justify-center py-24 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
+      <svg class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+      </svg>
+    </div>
+    <p class="text-gray-500 mb-1">No projects yet</p>
+    <a href="{% url 'projects:create' %}" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+      Connect your first repo →
+    </a>
+  </div>
   {% endfor %}
 </div>
+
 {% endblock %}

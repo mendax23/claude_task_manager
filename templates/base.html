@@ -5,56 +5,186 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AgentQueue{% endblock %}</title>
 
-  <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
-
-  <!-- Alpine.js -->
   <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
-
-  <!-- SortableJS -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.4/Sortable.min.js"></script>
 
   <style>
     [x-cloak] { display: none !important; }
+
+    /* ── Kanban animations ── */
     .animate-pulse-border { animation: pulseBorder 2s ease-in-out infinite; }
     @keyframes pulseBorder {
-      0%, 100% { border-left-color: rgb(245, 158, 11); }
-      50% { border-left-color: rgb(251, 191, 36); }
+      0%, 100% { border-left-color: rgb(245,158,11); }
+      50%       { border-left-color: rgb(251,191,36); }
     }
-    .sortable-ghost { opacity: 0.4; transform: scale(0.98); }
-    .sortable-drag { transform: rotate(2deg); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    @keyframes runningBar {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(400%); }
+    }
+    .sortable-ghost { opacity: 0.35; transform: scale(0.97); border: 1px dashed rgba(99,102,241,.4); }
+    .sortable-drag  { transform: rotate(1.5deg); box-shadow: 0 24px 48px rgba(0,0,0,.4); }
+
+    /* ── HTMX spinner ── */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline; }
+
+    /* ── Global form element fallback (catches {{ field }} rendered widgets) ── */
+    main input[type=text],
+    main input[type=number],
+    main input[type=url],
+    main input[type=email],
+    main input[type=password],
+    main input[type=search],
+    main input[type=date],
+    main input[type=time] {
+      width: 100%;
+      background: rgb(31,41,55);
+      border: 1px solid rgba(55,65,81,.9);
+      border-radius: .75rem;
+      padding: .625rem 1rem;
+      color: white;
+      font-size: .875rem;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    main select {
+      width: 100%;
+      background: rgb(31,41,55);
+      border: 1px solid rgba(55,65,81,.9);
+      border-radius: .75rem;
+      padding: .625rem 1rem;
+      color: white;
+      font-size: .875rem;
+      outline: none;
+      appearance: none;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    main textarea {
+      width: 100%;
+      background: rgb(31,41,55);
+      border: 1px solid rgba(55,65,81,.9);
+      border-radius: .75rem;
+      padding: .75rem 1rem;
+      color: white;
+      font-size: .875rem;
+      outline: none;
+      resize: vertical;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    main input:focus, main select:focus, main textarea:focus {
+      border-color: rgb(99,102,241);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+    main input::placeholder, main textarea::placeholder {
+      color: rgba(107,114,128,.8);
+    }
+
+    /* ── Nav active link ── */
+    nav a.nav-active {
+      color: white;
+      position: relative;
+    }
+    nav a.nav-active::after {
+      content: '';
+      position: absolute;
+      bottom: -12px;
+      left: 0; right: 0;
+      height: 2px;
+      background: rgb(99,102,241);
+      border-radius: 2px;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(75,85,99,.6); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(107,114,128,.8); }
   </style>
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
+<body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
 
   {% include "components/token_budget_bar.html" %}
 
-  <nav class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center gap-6">
-    <a href="{% url 'dashboard:index' %}" class="text-white font-bold text-lg tracking-tight">
-      AgentQueue
+  <nav class="bg-gray-900/95 backdrop-blur border-b border-gray-800/80 px-6 py-0 flex items-center gap-1 sticky top-0 z-20">
+    <!-- Logo -->
+    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-2.5 mr-4 py-3.5">
+      <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/50">
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <span class="font-bold text-white tracking-tight">AgentQueue</span>
     </a>
-    <a href="{% url 'projects:list' %}" class="text-gray-400 hover:text-white text-sm transition-colors">Projects</a>
-    <a href="{% url 'tasks:list' %}" class="text-gray-400 hover:text-white text-sm transition-colors">Tasks</a>
-    <a href="{% url 'scheduling:settings' %}" class="text-gray-400 hover:text-white text-sm transition-colors">Schedule</a>
-    <a href="/admin/" class="text-gray-400 hover:text-white text-sm transition-colors ml-auto">Admin</a>
+
+    <!-- Nav links -->
+    {% with request.resolver_match.app_name as app %}
+    <a href="{% url 'dashboard:index' %}"
+       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+              {% if request.path == '/' %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
+      Dashboard
+    </a>
+    <a href="{% url 'projects:list' %}"
+       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+              {% if 'projects' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
+      Projects
+    </a>
+    <a href="{% url 'tasks:list' %}"
+       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+              {% if 'tasks' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
+      Tasks
+    </a>
+    <a href="{% url 'scheduling:settings' %}"
+       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+              {% if 'scheduling' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
+      Schedule
+    </a>
+    <a href="{% url 'providers:list' %}"
+       class="nav-link text-sm px-3 py-3.5 transition-colors relative
+              {% if 'providers' in request.path %}text-white nav-active{% else %}text-gray-500 hover:text-gray-200{% endif %}">
+      Providers
+    </a>
+    {% endwith %}
+
+    <div class="flex-1"></div>
+    <a href="/admin/"
+       class="text-xs text-gray-600 hover:text-gray-400 px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors">
+      Admin ↗
+    </a>
   </nav>
 
-  <main class="p-6">
+  <main class="p-6 max-w-screen-2xl mx-auto">
     {% block content %}{% endblock %}
   </main>
 
   <!-- Toast notifications -->
-  <div x-cloak class="fixed bottom-4 right-4 space-y-2 z-50" x-show="notifications.length > 0">
-    <template x-for="(n, i) in notifications" :key="i">
-      <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-xl flex items-center gap-3 max-w-sm"
-           x-transition>
-        <span class="text-sm" x-text="n.message"></span>
-        <button @click="notifications.splice(i, 1)" class="text-gray-500 hover:text-white ml-auto">&times;</button>
+  <div x-cloak
+       class="fixed bottom-5 right-5 space-y-2 z-50 min-w-[280px]"
+       x-show="$store.agentqueue.notifications.length > 0">
+    <template x-for="(n, i) in $store.agentqueue.notifications" :key="i">
+      <div class="flex items-start gap-3 bg-gray-800 border border-gray-700/80 rounded-xl px-4 py-3
+                  shadow-2xl shadow-black/30 backdrop-blur"
+           x-transition:enter="transition ease-out duration-300"
+           x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+           x-transition:leave="transition ease-in duration-200"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0 translate-y-1">
+        <div class="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+             :class="n.type === 'error' ? 'bg-red-400' : n.type === 'success' ? 'bg-green-400' : 'bg-indigo-400'">
+        </div>
+        <span class="text-sm text-gray-200 flex-1" x-text="n.message"></span>
+        <button @click="$store.agentqueue.notifications.splice(i, 1)"
+                class="text-gray-600 hover:text-gray-300 transition-colors mt-0.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
     </template>
   </div>

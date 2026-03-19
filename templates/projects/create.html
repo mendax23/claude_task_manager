@@ -1,21 +1,127 @@
 {% extends "base.html" %}
 {% block title %}New Project — AgentQueue{% endblock %}
 {% block content %}
-<div class="max-w-lg">
-  <h1 class="text-xl font-semibold mb-6">Add Project</h1>
-  <form method="post" class="space-y-4">
-    {% csrf_token %}
-    {% for field in form %}
+
+<div class="max-w-xl">
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-8">
+    <a href="{% url 'projects:list' %}"
+       class="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-900 border border-gray-800
+              text-gray-500 hover:text-white hover:border-gray-600 transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
     <div>
-      <label class="block text-sm text-gray-400 mb-1">{{ field.label }}</label>
-      {{ field }}
-      {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors }}</p>{% endif %}
+      <h1 class="text-xl font-bold text-white">New Project</h1>
+      <p class="text-xs text-gray-500 mt-0.5">Connect a git repo to start queuing tasks</p>
     </div>
-    {% endfor %}
-    <div class="flex gap-3 pt-2">
-      <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-sm">Add Project</button>
-      <a href="{% url 'projects:list' %}" class="text-gray-400 hover:text-white px-4 py-2 text-sm">Cancel</a>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="mb-5 px-4 py-3 bg-red-900/20 border border-red-700/40 rounded-xl text-red-400 text-sm">
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800 overflow-hidden mb-5">
+
+      <!-- Name -->
+      <div class="px-5 py-4">
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          Project Name <span class="text-red-500">*</span>
+        </label>
+        {{ form.name }}
+        {% if form.name.errors %}
+        <p class="text-red-400 text-xs mt-1.5">{{ form.name.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Repo Path -->
+      <div class="px-5 py-4">
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Repository Path <span class="text-red-500">*</span>
+        </label>
+        <p class="text-xs text-gray-600 mb-2">Absolute path to the local git repo</p>
+        {{ form.repo_path }}
+        {% if form.repo_path.errors %}
+        <p class="text-red-400 text-xs mt-1.5">{{ form.repo_path.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Description -->
+      <div class="px-5 py-4">
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          Description
+        </label>
+        {{ form.description }}
+        {% if form.description.errors %}
+        <p class="text-red-400 text-xs mt-1.5">{{ form.description.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Remote URL + Branch (two cols) -->
+      <div class="px-5 py-4 grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Remote URL
+          </label>
+          {{ form.remote_url }}
+          {% if form.remote_url.errors %}
+          <p class="text-red-400 text-xs mt-1.5">{{ form.remote_url.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Default Branch
+          </label>
+          {{ form.default_branch }}
+          {% if form.default_branch.errors %}
+          <p class="text-red-400 text-xs mt-1.5">{{ form.default_branch.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- LLM Config -->
+      <div class="px-5 py-4">
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          LLM Provider
+        </label>
+        <p class="text-xs text-gray-600 mb-2">Override the default provider for tasks in this project</p>
+        <div class="relative">
+          {{ form.llm_config }}
+          <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </div>
+        </div>
+        {% if form.llm_config.errors %}
+        <p class="text-red-400 text-xs mt-1.5">{{ form.llm_config.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+                     px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+        </svg>
+        Create Project
+      </button>
+      <a href="{% url 'projects:list' %}"
+         class="text-sm text-gray-500 hover:text-gray-300 px-4 py-2.5 rounded-xl hover:bg-gray-900 transition-colors">
+        Cancel
+      </a>
     </div>
   </form>
 </div>
+
 {% endblock %}

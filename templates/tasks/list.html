@@ -1,20 +1,92 @@
 {% extends "base.html" %}
 {% block title %}Tasks — AgentQueue{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold">Tasks</h1>
-  <a href="{% url 'tasks:create' %}" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg">+ New Task</a>
+
+<div class="flex items-center justify-between mb-8">
+  <div>
+    <h1 class="text-2xl font-bold text-white">Tasks</h1>
+    <p class="text-sm text-gray-500 mt-0.5">{{ tasks|length }} task{{ tasks|length|pluralize }} total</p>
+  </div>
+  <a href="{% url 'dashboard:index' %}"
+     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+            px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+    </svg>
+    New Task
+  </a>
 </div>
-<div class="space-y-2">
+
+{% if tasks %}
+<div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
   {% for task in tasks %}
-    <div class="bg-gray-800 rounded-lg p-4 flex items-center gap-4">
-      <span class="text-sm font-medium text-white flex-1">{{ task.title }}</span>
-      <span class="text-xs text-gray-400">{{ task.project.name }}</span>
-      <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">{{ task.status }}</span>
-      <a href="{% url 'tasks:detail' task.pk %}" class="text-indigo-400 hover:text-indigo-300 text-xs">View</a>
-    </div>
-  {% empty %}
-    <p class="text-gray-500 text-center py-12">No tasks yet. <a href="{% url 'tasks:create' %}" class="text-indigo-400">Create one</a></p>
+  <div class="flex items-center gap-4 px-5 py-4
+              {% if not forloop.last %}border-b border-gray-800{% endif %}
+              hover:bg-gray-800/30 transition-colors group">
+
+    <!-- Priority bar -->
+    <div class="w-1 h-9 rounded-full shrink-0
+      {% if task.priority == 4 %}bg-red-500
+      {% elif task.priority == 3 %}bg-amber-500
+      {% elif task.priority == 2 %}bg-blue-500
+      {% else %}bg-gray-700{% endif %}"></div>
+
+    <!-- Status dot -->
+    <div class="w-2 h-2 rounded-full shrink-0
+      {% if task.status == 'in_progress' %}bg-amber-400 animate-pulse
+      {% elif task.status == 'done' %}bg-green-500
+      {% elif task.status == 'failed' %}bg-red-500
+      {% elif task.status == 'scheduled' %}bg-blue-400
+      {% else %}bg-gray-600{% endif %}"></div>
+
+    <!-- Title -->
+    <span class="text-sm font-medium text-white flex-1 truncate" title="{{ task.title }}">{{ task.title }}</span>
+
+    <!-- Project chip -->
+    {% if task.project %}
+    <span class="text-xs text-indigo-300 bg-indigo-900/30 border border-indigo-800/30 px-2.5 py-1 rounded-lg hidden sm:inline">
+      {{ task.project.name }}
+    </span>
+    {% endif %}
+
+    <!-- Type badge -->
+    {% if task.task_type == 'evergreen' %}
+    <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-2 py-0.5 rounded-lg">↺</span>
+    {% elif task.task_type == 'chained' %}
+    <span class="text-xs text-purple-400 bg-purple-900/20 border border-purple-800/30 px-2 py-0.5 rounded-lg">⛓</span>
+    {% endif %}
+
+    <!-- Status badge -->
+    <span class="text-xs px-2.5 py-1 rounded-lg font-medium
+      {% if task.status == 'in_progress' %}bg-amber-900/30 border border-amber-700/30 text-amber-400
+      {% elif task.status == 'done' %}bg-green-900/30 border border-green-700/30 text-green-400
+      {% elif task.status == 'failed' %}bg-red-900/30 border border-red-700/30 text-red-400
+      {% elif task.status == 'scheduled' %}bg-blue-900/30 border border-blue-700/30 text-blue-400
+      {% else %}bg-gray-800 border border-gray-700 text-gray-500{% endif %}">
+      {{ task.status }}
+    </span>
+
+    <a href="{% url 'tasks:detail' task.pk %}"
+       class="text-xs text-gray-600 hover:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-800
+              transition-colors opacity-0 group-hover:opacity-100">
+      View →
+    </a>
+  </div>
   {% endfor %}
 </div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
+    <svg class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+  </div>
+  <p class="text-gray-500 mb-2">No tasks yet</p>
+  <a href="{% url 'dashboard:index' %}" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+    Go to dashboard to create one →
+  </a>
+</div>
+{% endif %}
+
 {% endblock %}

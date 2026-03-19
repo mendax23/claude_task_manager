@@ -2,80 +2,126 @@
 {% block title %}{{ project.name }} — AgentQueue{% endblock %}
 
 {% block content %}
-<div class="flex items-center gap-4 mb-6">
-  <a href="{% url 'projects:list' %}" class="text-gray-500 hover:text-white transition-colors">←</a>
-  <div>
-    <h1 class="text-xl font-bold text-white">{{ project.name }}</h1>
-    <code class="text-xs text-gray-500">{{ project.repo_path }}</code>
+
+<!-- Header -->
+<div class="flex items-start gap-4 mb-8">
+  <a href="{% url 'projects:list' %}"
+     class="mt-1 w-8 h-8 flex items-center justify-center rounded-xl bg-gray-900 border border-gray-800
+            text-gray-500 hover:text-white hover:border-gray-600 transition-colors shrink-0">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center gap-3 flex-wrap">
+      <h1 class="text-2xl font-bold text-white">{{ project.name }}</h1>
+      <span class="text-xs font-mono bg-gray-800 border border-gray-700 text-gray-500 px-2.5 py-1 rounded-lg">
+        {{ project.default_branch }}
+      </span>
+      {% if project.remote_url %}
+      <a href="{{ project.remote_url }}" target="_blank"
+         class="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-500/60
+                px-2.5 py-1 rounded-lg transition-colors">
+        ↗ Remote
+      </a>
+      {% endif %}
+    </div>
+    <code class="text-xs text-gray-600 mt-1 block">{{ project.repo_path }}</code>
   </div>
-  {% if project.remote_url %}
-  <a href="{{ project.remote_url }}" target="_blank"
-     class="ml-2 text-xs text-gray-600 hover:text-gray-400 transition-colors">↗ repo</a>
-  {% endif %}
 </div>
 
-<div class="flex gap-3 mb-8">
-  <a href="{% url 'tasks:create' %}"
-     class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
-    + New Task
-  </a>
+<!-- Actions -->
+<div class="flex items-center gap-3 mb-8">
   <button hx-post="{% url 'projects:suggest' project.slug %}"
           hx-target="#suggestions-panel"
           hx-swap="innerHTML"
           hx-indicator="#suggest-spinner"
-          class="border border-indigo-500/50 hover:border-indigo-500 text-indigo-400 hover:text-indigo-300 text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
-    <span id="suggest-spinner" class="htmx-indicator animate-spin">⟳</span>
+          class="flex items-center gap-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30
+                 hover:border-indigo-500/60 text-indigo-400 hover:text-indigo-300 text-sm px-4 py-2 rounded-xl transition-all">
+    <svg id="suggest-spinner" class="w-4 h-4 htmx-indicator animate-spin" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+    </svg>
     Suggest Tasks (AI)
   </button>
+  <span class="text-xs text-gray-600 bg-gray-900 border border-gray-800 px-3 py-2 rounded-xl font-mono">
+    {{ tasks|length }} task{{ tasks|length|pluralize }}
+  </span>
 </div>
 
 <!-- AI Suggestions Panel -->
 <div id="suggestions-panel" class="mb-8"></div>
 
-<!-- Tasks by status -->
+<!-- Tasks -->
 {% regroup tasks by status as tasks_by_status %}
-{% for group in tasks_by_status %}
-<div class="mb-6">
-  <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-    {{ group.grouper }}
-    <span class="text-gray-700 font-normal normal-case tracking-normal ml-1">{{ group.list|length }}</span>
-  </h2>
-  <div class="space-y-2">
-    {% for task in group.list %}
-    <div class="bg-gray-800 rounded-xl px-4 py-3 flex items-center gap-4 hover:bg-gray-750 transition-colors">
-      <div class="w-2 h-2 rounded-full shrink-0
-        {% if task.status == 'in_progress' %}bg-amber-400 animate-pulse
-        {% elif task.status == 'done' %}bg-green-500
-        {% elif task.status == 'failed' %}bg-red-500
+{% if tasks_by_status %}
+<div class="space-y-6">
+  {% for group in tasks_by_status %}
+  <div>
+    <div class="flex items-center gap-2 mb-3">
+      <div class="w-2 h-2 rounded-full
+        {% if group.grouper == 'in_progress' %}bg-amber-400 animate-pulse
+        {% elif group.grouper == 'done' %}bg-green-500
+        {% elif group.grouper == 'failed' %}bg-red-500
+        {% elif group.grouper == 'scheduled' %}bg-blue-500
         {% else %}bg-gray-600{% endif %}"></div>
-      <span class="text-sm text-white flex-1">{{ task.title }}</span>
-      {% if task.task_type == 'evergreen' %}
-      <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/40 px-2 py-0.5 rounded">evergreen</span>
-      {% endif %}
-      <div class="flex items-center gap-2">
-        {% if task.status in 'backlog scheduled failed' %}
-        <button hx-post="{% url 'tasks:trigger' task.pk %}"
-                hx-swap="none"
-                class="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-indigo-900/20 transition-colors">
-          Run
-        </button>
-        {% endif %}
-        <a href="{% url 'tasks:detail' task.pk %}"
-           class="text-xs text-gray-600 hover:text-gray-400 transition-colors">
-          View →
-        </a>
-      </div>
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500">{{ group.grouper|title }}</h2>
+      <span class="text-xs text-gray-700">{{ group.list|length }}</span>
     </div>
-    {% endfor %}
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+      {% for task in group.list %}
+      <div class="flex items-center gap-4 px-5 py-3.5
+                  {% if not forloop.last %}border-b border-gray-800{% endif %}
+                  hover:bg-gray-800/40 transition-colors group/row">
+        <!-- Priority strip -->
+        <div class="w-1 h-8 rounded-full shrink-0
+          {% if task.priority == 4 %}bg-red-500
+          {% elif task.priority == 3 %}bg-amber-500
+          {% elif task.priority == 2 %}bg-blue-500
+          {% else %}bg-gray-700{% endif %}"></div>
+
+        <span class="text-sm text-white flex-1 font-medium">{{ task.title }}</span>
+
+        {% if task.task_type == 'evergreen' %}
+        <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-2 py-0.5 rounded-lg">↺ evergreen</span>
+        {% elif task.task_type == 'chained' %}
+        <span class="text-xs text-purple-400 bg-purple-900/20 border border-purple-800/30 px-2 py-0.5 rounded-lg">⛓ chain</span>
+        {% endif %}
+
+        <div class="flex items-center gap-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          {% if task.status == 'backlog' or task.status == 'scheduled' or task.status == 'failed' %}
+          <button hx-post="{% url 'tasks:trigger' task.pk %}" hx-swap="none"
+                  class="text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-lg
+                         bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 transition-colors">
+            Run
+          </button>
+          {% endif %}
+          <a href="{% url 'tasks:detail' task.pk %}"
+             class="text-xs text-gray-500 hover:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-800 transition-colors">
+            View →
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
+  {% endfor %}
 </div>
-{% empty %}
-<div class="text-center py-16 text-gray-600">
-  <p class="text-lg mb-2">No tasks yet</p>
-  <p class="text-sm">
-    <a href="{% url 'tasks:create' %}" class="text-indigo-500 hover:text-indigo-400">Create one manually</a>
-    or let AI suggest tasks for this repo.
-  </p>
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
+    <svg class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+  </div>
+  <p class="text-gray-500 mb-1">No tasks yet</p>
+  <p class="text-sm text-gray-600">Use <span class="text-indigo-400">Suggest Tasks</span> to let AI generate ideas, or create one from the dashboard.</p>
 </div>
-{% endfor %}
+{% endif %}
+
 {% endblock %}
