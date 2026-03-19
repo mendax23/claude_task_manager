@@ -1,6 +1,9 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from apps.tasks.models import Task, TaskStatus
+from apps.tasks.forms import TaskForm
+from apps.projects.models import Project
+from apps.providers.models import LLMConfig
 from apps.scheduling.models import TokenBudget, Schedule
 from apps.scheduling.services.idle_detector import IdleDetector
 
@@ -39,6 +42,9 @@ def dashboard(request):
         "schedule": schedule,
         "failed_count": failed_tasks,
         "total_tasks": len(tasks),
+        "task_form": TaskForm(),
+        "projects": Project.objects.all(),
+        "llm_configs": LLMConfig.objects.all(),
     })
 
 

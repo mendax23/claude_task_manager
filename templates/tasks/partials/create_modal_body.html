@@ -1,0 +1,159 @@
+{% csrf_token %}
+
+{# ── Errors banner ── #}
+{% if form.non_field_errors %}
+<div class="mb-5 px-4 py-3 bg-red-900/30 border border-red-700/50 rounded-xl text-red-400 text-sm">
+  {{ form.non_field_errors }}
+</div>
+{% endif %}
+
+<div x-data="{
+  taskType: '{{ form.task_type.value|default:'one_shot' }}',
+  showAdvanced: false,
+  priority: '{{ form.priority.value|default:'2' }}'
+}" class="space-y-5">
+
+  {# ── Project ── #}
+  <div>
+    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Project</label>
+    <div class="relative">
+      <select name="project"
+              class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white
+                     focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50
+                     appearance-none cursor-pointer transition-colors">
+        <option value="">— No project —</option>
+        {% for p in projects %}
+          <option value="{{ p.pk }}" {% if form.project.value|stringformat:"s" == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </div>
+    </div>
+    {% if form.project.errors %}<p class="text-red-400 text-xs mt-1">{{ form.project.errors|join:", " }}</p>{% endif %}
+  </div>
+
+  {# ── Title ── #}
+  <div>
+    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Title</label>
+    <input type="text" name="title" value="{{ form.title.value|default:'' }}"
+           placeholder="e.g. Write unit tests for auth module"
+           class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white
+                  placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1
+                  focus:ring-indigo-500/50 transition-colors">
+    {% if form.title.errors %}<p class="text-red-400 text-xs mt-1">{{ form.title.errors|join:", " }}</p>{% endif %}
+  </div>
+
+  {# ── Task Type ── #}
+  <div>
+    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Type</label>
+    <div class="flex gap-2">
+      <template x-for="[val, label, desc] in [
+        ['one_shot',  'One Shot',  'Runs once and done'],
+        ['evergreen', 'Evergreen', 'Repeats on a schedule'],
+        ['chained',   'Chained',   'Part of a sequence']
+      ]" :key="val">
+        <button type="button"
+                @click="taskType = val"
+                :class="taskType === val
+                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-300'"
+                class="flex-1 border rounded-xl px-3 py-2.5 text-xs font-medium transition-all text-center">
+          <div x-text="label" class="font-semibold"></div>
+          <div x-text="desc" class="text-[10px] opacity-60 mt-0.5 leading-tight"></div>
+        </button>
+      </template>
+    </div>
+    <input type="hidden" name="task_type" :value="taskType">
+  </div>
+
+  {# ── Priority ── #}
+  <div>
+    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Priority</label>
+    <div class="flex gap-2">
+      <template x-for="[val, label, active, inactive] in [
+        ['1', 'Low',    'bg-slate-600 border-slate-500 text-white',  'bg-gray-800 border-gray-700 text-gray-400 hover:border-slate-600'],
+        ['2', 'Medium', 'bg-blue-600 border-blue-500 text-white',    'bg-gray-800 border-gray-700 text-gray-400 hover:border-blue-600'],
+        ['3', 'High',   'bg-amber-600 border-amber-500 text-white',  'bg-gray-800 border-gray-700 text-gray-400 hover:border-amber-600'],
+        ['4', 'Urgent', 'bg-red-600 border-red-500 text-white',      'bg-gray-800 border-gray-700 text-gray-400 hover:border-red-600']
+      ]" :key="val">
+        <button type="button"
+                @click="priority = val"
+                :class="priority === val ? active : inactive"
+                class="flex-1 border rounded-xl py-2 text-xs font-semibold transition-all text-center"
+                x-text="label">
+        </button>
+      </template>
+    </div>
+    <input type="hidden" name="priority" :value="priority">
+  </div>
+
+  {# ── Prompt ── #}
+  <div>
+    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Prompt</label>
+    <textarea name="prompt" rows="5"
+              placeholder="Describe exactly what the AI should do. Be specific — include file paths, expected output format, constraints..."
+              class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white
+                     placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1
+                     focus:ring-indigo-500/50 transition-colors resize-none leading-relaxed">{{ form.prompt.value|default:'' }}</textarea>
+    {% if form.prompt.errors %}<p class="text-red-400 text-xs mt-1">{{ form.prompt.errors|join:", " }}</p>{% endif %}
+  </div>
+
+  {# ── Recurrence (evergreen only) ── #}
+  <div x-show="taskType === 'evergreen'" x-transition>
+    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Recurrence <span class="text-indigo-400">(cron)</span></label>
+    <input type="text" name="recurrence_rule" value="{{ form.recurrence_rule.value|default:'' }}"
+           placeholder="0 9 * * 1  — every Monday at 9am"
+           class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white
+                  font-mono placeholder-gray-600 focus:outline-none focus:border-indigo-500
+                  focus:ring-1 focus:ring-indigo-500/50 transition-colors">
+    {% if form.recurrence_rule.errors %}<p class="text-red-400 text-xs mt-1">{{ form.recurrence_rule.errors|join:", " }}</p>{% endif %}
+  </div>
+
+  {# ── Advanced toggle ── #}
+  <div class="border-t border-gray-800 pt-4">
+    <button type="button" @click="showAdvanced = !showAdvanced"
+            class="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors group">
+      <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="showAdvanced ? 'rotate-90' : ''"
+           fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      <span x-text="showAdvanced ? 'Hide advanced' : 'Advanced options'"></span>
+    </button>
+
+    <div x-show="showAdvanced" x-transition class="mt-4 space-y-4">
+
+      {# LLM Config #}
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">LLM Provider <span class="font-normal text-gray-600">(overrides default)</span></label>
+        <div class="relative">
+          <select name="llm_config"
+                  class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white
+                         focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50
+                         appearance-none cursor-pointer transition-colors">
+            <option value="">— Use project/default —</option>
+            {% for cfg in llm_configs %}
+              <option value="{{ cfg.pk }}" {% if form.llm_config.value|stringformat:"s" == cfg.pk|stringformat:"s" %}selected{% endif %}>
+                {{ cfg.name }} ({{ cfg.get_provider_type_display }})
+              </option>
+            {% endfor %}
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+      </div>
+
+      {# Estimated tokens #}
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Estimated Tokens</label>
+        <input type="number" name="estimated_tokens" value="{{ form.estimated_tokens.value|default:'0' }}"
+               min="0" step="1000"
+               class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white
+                      focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-colors">
+      </div>
+
+    </div>
+  </div>
+
+</div>

@@ -12,10 +12,28 @@ def task_list(request):
 
 
 def task_create(request):
+    from django.http import HttpResponse
+    from apps.projects.models import Project
+    from apps.providers.models import LLMConfig
+
     form = TaskForm(request.POST or None)
+    is_htmx = request.headers.get("HX-Request")
+
     if form.is_valid():
-        task = form.save()
-        return redirect("tasks:detail", pk=task.pk)
+        form.save()
+        if is_htmx:
+            response = HttpResponse()
+            response["HX-Redirect"] = "/"
+            return response
+        return redirect("dashboard:index")
+
+    ctx = {
+        "form": form,
+        "projects": Project.objects.all(),
+        "llm_configs": LLMConfig.objects.all(),
+    }
+    if is_htmx:
+        return render(request, "tasks/partials/create_modal_body.html", ctx)
     return render(request, "tasks/create.html", {"form": form})
 
 
