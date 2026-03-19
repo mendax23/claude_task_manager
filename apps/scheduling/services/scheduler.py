@@ -1,4 +1,5 @@
 import logging
+from django.db import models
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,3 @@ class SmartScheduler:
                     return True
         return False
 
-
-# Fix missing import
-from django.db import models  # noqa: E402

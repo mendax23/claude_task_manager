@@ -148,6 +148,7 @@ class TaskRunner:
         if not tokens:
             return
         from asgiref.sync import sync_to_async
+        from django.db import models
         from apps.scheduling.models import TokenBudget
 
         @sync_to_async
@@ -157,7 +158,6 @@ class TaskRunner:
             )
 
         try:
-            from django.db import models
             await update_budget()
         except Exception as e:
             logger.warning("Failed to update token budget: %s", e)
