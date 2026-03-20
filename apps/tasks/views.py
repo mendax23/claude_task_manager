@@ -98,16 +98,25 @@ def task_trigger(request, pk):
 @require_POST
 def task_cancel(request, pk):
     task = get_object_or_404(Task, pk=pk)
+    if task.status != TaskStatus.IN_PROGRESS:
+        return _error_response("Only running tasks can be cancelled.")
+
     run = task.runs.filter(status=TaskStatus.IN_PROGRESS).first()
     if run:
-        from apps.tasks.services.tmux_manager import TmuxManager
-        TmuxManager().kill_session(run.tmux_session)
+        try:
+            from apps.tasks.services.tmux_manager import TmuxManager
+            TmuxManager().kill_session(run.tmux_session)
+        except Exception:
+            pass
         run.status = TaskStatus.CANCELLED
         run.save(update_fields=["status"])
-        task.status = TaskStatus.CANCELLED
-        task.save(update_fields=["status", "updated_at"])
 
-    return render(request, "tasks/partials/task_card.html", {"task": task})
+    task.status = TaskStatus.CANCELLED
+    task.save(update_fields=["status", "updated_at"])
+
+    response = render(request, "tasks/partials/task_card.html", {"task": task})
+    response["HX-Trigger"] = json.dumps({"agentqueue:success": {"message": f"\"{task.title}\" cancelled."}})
+    return response
 
 
 def tmux_attach_command(request, pk):
