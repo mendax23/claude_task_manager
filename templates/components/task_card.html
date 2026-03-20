@@ -1,19 +1,15 @@
 {% load humanize %}
 <div class="task-card group relative cursor-grab active:cursor-grabbing
-            rounded-2xl overflow-hidden transition-all duration-300 ease-out
-            hover:-translate-y-0.5 hover:shadow-xl
+            rounded-xl overflow-hidden transition-all duration-200 ease-out
+            hover:-translate-y-px hover:shadow-lg
             {% if task.status == 'in_progress' %}
-              bg-gray-800/95 border border-amber-500/30 running-card-glow
+              bg-gray-800/95 border border-amber-800/30 running-card-glow
             {% elif task.status == 'done' %}
-              bg-gray-800/55 border border-green-700/25 opacity-80 hover:opacity-100
+              bg-gray-800/40 border border-gray-700/25 opacity-70 hover:opacity-95
             {% elif task.status == 'scheduled' %}
-              bg-gray-800 border border-blue-700/25
-            {% elif task.priority == 4 %}
-              bg-gray-800 border border-red-600/40 hover:border-red-600/60
-            {% elif task.priority == 3 %}
-              bg-gray-800 border border-orange-600/25 hover:border-orange-600/45
+              bg-gray-800/70 border border-gray-700/35
             {% else %}
-              bg-gray-800 border border-gray-700/50 hover:border-gray-600/60
+              bg-gray-800/80 border border-gray-700/40 hover:border-gray-600/50
             {% endif %}"
      data-task-id="{{ task.pk }}"
      id="task-card-{{ task.pk }}"
@@ -41,235 +37,168 @@
      hx-target="#task-card-{{ task.pk }}"
      hx-swap="outerHTML">
 
-  {# ── In-progress decorations: top scanner + shimmer sweep ── #}
+  {# Priority accent stripe #}
+  <div class="absolute left-0 top-0 bottom-0 w-0.5
+              {% if task.priority == 4 %}bg-rose-600/60
+              {% elif task.priority == 3 %}bg-amber-500/55
+              {% elif task.priority == 2 %}bg-sky-600/45
+              {% else %}bg-gray-700/35{% endif %}"></div>
+
+  {# In-progress: top scanner line + shimmer #}
   {% if task.status == 'in_progress' %}
-  <div class="absolute top-0 left-0 right-0 h-[2px] overflow-hidden pointer-events-none">
-    <div class="absolute top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-amber-400 to-transparent top-scanner"></div>
+  <div class="absolute top-0 left-0 right-0 h-px overflow-hidden pointer-events-none">
+    <div class="absolute top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-amber-400/60 to-transparent top-scanner"></div>
   </div>
-  <div class="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-    <div class="absolute inset-y-0 w-20 bg-gradient-to-r from-transparent via-amber-300/4 to-transparent card-shimmer"></div>
+  <div class="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
+    <div class="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-amber-300/3 to-transparent card-shimmer"></div>
   </div>
   {% endif %}
 
-  <div class="relative p-4">
+  <div class="relative pl-3.5 pr-3 py-2.5">
 
-    {# ── Row 1: Priority badge + Type badge ── #}
-    <div class="flex items-start justify-between gap-2 mb-2.5">
-
-      {# Priority #}
-      {% if task.priority == 4 %}
-      <span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-red-900/40 border border-red-600/40 text-red-400 shrink-0">
-        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
-        P1 · Urgent
-      </span>
-      {% elif task.priority == 3 %}
-      <span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-600/35 text-orange-400 shrink-0">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        P2 · High
-      </span>
-      {% elif task.priority == 2 %}
-      <span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-900/25 border border-blue-600/30 text-blue-400 shrink-0">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        P3 · Normal
-      </span>
-      {% else %}
-      <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-gray-800 border border-gray-700/40 text-gray-600 shrink-0">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        P4 · Low
-      </span>
+    {# Row 1: Title + type icon #}
+    <div class="flex items-center gap-1.5 mb-1">
+      <p class="text-sm font-medium text-gray-100 leading-tight line-clamp-1 flex-1"
+         title="{{ task.title }}">{{ task.title }}</p>
+      {% if task.task_type == 'evergreen' %}
+      <svg class="w-3 h-3 text-emerald-600/65 shrink-0" title="Evergreen — repeats on schedule" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      {% elif task.task_type == 'chained' %}
+      <svg class="w-3 h-3 text-violet-600/60 shrink-0" title="Chained task" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+      </svg>
       {% endif %}
-
-      {# Task type badge #}
-      <div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-        {% if task.task_type == 'evergreen' %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-emerald-900/25 border border-emerald-700/25 text-emerald-400" title="Repeats on schedule">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          Evergreen
-        </span>
-        {% elif task.task_type == 'chained' %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-purple-900/25 border border-purple-700/25 text-purple-400" title="Part of a chain">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-          Chained
-        </span>
-        {% else %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-gray-800/80 border border-gray-700/30 text-gray-600" title="Runs once">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          One-shot
-        </span>
-        {% endif %}
-      </div>
     </div>
 
-    {# ── Project pill ── #}
-    <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 mb-2.5 rounded-lg bg-indigo-900/25 border border-indigo-700/25 text-indigo-300 font-medium max-w-full truncate" title="{{ task.project.name }}">
-      <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-      {{ task.project.name }}
-    </span>
+    {# Row 2: Project · Priority dot · Age #}
+    <div class="flex items-center gap-2 text-xs leading-none">
+      <span class="flex items-center gap-1 text-gray-500 truncate flex-1 min-w-0">
+        <svg class="w-3 h-3 shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+        </svg>
+        <span class="truncate">{{ task.project.name }}</span>
+      </span>
+      <span class="flex items-center gap-1 shrink-0 text-gray-600">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0
+                     {% if task.priority == 4 %}bg-rose-500/65
+                     {% elif task.priority == 3 %}bg-amber-500/55
+                     {% elif task.priority == 2 %}bg-sky-500/50
+                     {% else %}bg-gray-600/50{% endif %}"></span>
+        P{{ task.priority }}
+      </span>
+      <span class="shrink-0 text-gray-600">{{ task.created_at|naturaltime }}</span>
+    </div>
 
-    {# ── Title ── #}
-    <p class="text-base font-semibold text-gray-100 leading-snug mb-3 line-clamp-2" title="{{ task.title }}">{{ task.title }}</p>
+    {# In-progress: scanner bar + live output line #}
+    {% if task.status == 'in_progress' %}
+    <div class="mt-2">
+      <div class="h-px bg-gray-900/80 rounded-full overflow-hidden relative mb-1.5">
+        <div class="absolute inset-y-0 w-2/5 bg-gradient-to-r from-amber-700/10 via-amber-400/75 to-amber-700/10 rounded-full running-scanner"></div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <div class="w-1.5 h-1.5 bg-amber-500/65 rounded-full animate-pulse shrink-0"></div>
+        <p class="text-xs text-gray-500 font-mono truncate flex-1"
+           x-text="task.outputTail || 'Running...'">Running...</p>
+        <span class="text-amber-600/55 text-xs cursor-blink shrink-0">▊</span>
+        <span class="text-xs font-mono text-gray-600 tabular-nums shrink-0" x-text="elapsedStr">0s</span>
+      </div>
+    </div>
+    {% endif %}
 
-    {# ── Tags ── #}
+    {# Done status line #}
+    {% if task.status == 'done' %}
+    <div class="mt-1.5 flex items-center gap-1.5 text-xs text-green-700/60">
+      <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+      {% if task.completed_at %}<span>{{ task.completed_at|naturaltime }}</span>{% else %}<span>Completed</span>{% endif %}
+      {% if task.result_summary %}<span class="text-gray-600 truncate">· {{ task.result_summary }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {# Scheduled status line #}
+    {% if task.status == 'scheduled' %}
+    <div class="mt-1.5 flex items-center gap-1.5 text-xs text-blue-700/60">
+      <svg class="w-3 h-3 shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>{% if task.next_run_at %}Runs {{ task.next_run_at|naturaltime }}{% else %}Waiting to run{% endif %}</span>
+    </div>
+    {% endif %}
+
+    {# Tags — max 2, tiny #}
     {% if task.tags %}
-    <div class="flex flex-wrap gap-1 mb-3">
-      {% for tag in task.tags|slice:":3" %}
-      <span class="text-xs bg-gray-700/40 border border-gray-700/40 text-gray-400 px-2 py-0.5 rounded-md">#{{ tag }}</span>
+    <div class="flex gap-1 mt-1.5 flex-wrap">
+      {% for tag in task.tags|slice:":2" %}
+      <span class="text-[10px] text-gray-600 bg-gray-800/60 px-1.5 py-px rounded">#{{ tag }}</span>
       {% endfor %}
     </div>
     {% endif %}
 
-    {# ══════════════════════════════════════════════ #}
-    {# ── IN PROGRESS status block ── #}
-    {# ══════════════════════════════════════════════ #}
-    {% if task.status == 'in_progress' %}
-    <div class="mb-3 rounded-xl bg-amber-950/40 border border-amber-800/25 p-3 space-y-2.5">
-
-      {# Header: pulsing dot + label + elapsed #}
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="relative flex items-center justify-center w-3.5 h-3.5">
-            <div class="absolute inset-0 bg-amber-400/30 rounded-full animate-ping"></div>
-            <div class="w-2.5 h-2.5 bg-amber-400 rounded-full"></div>
-          </div>
-          <span class="text-sm font-bold text-amber-400 tracking-wide">Running</span>
-          <svg class="w-3 h-3 text-amber-700 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-        </div>
-        <span class="text-xs font-mono text-amber-700 tabular-nums bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-900/40"
-              x-text="elapsedStr + ' elapsed'">0s elapsed</span>
-      </div>
-
-      {# Animated scanner progress bar #}
-      <div class="h-1 bg-gray-900/70 rounded-full overflow-hidden relative">
-        <div class="absolute inset-y-0 w-2/5 bg-gradient-to-r from-amber-700/20 via-amber-400 to-amber-700/20 rounded-full running-scanner"></div>
-      </div>
-
-      {# Live output tail #}
-      <div class="flex items-start gap-1.5">
-        <svg class="w-3 h-3 text-amber-900/60 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        <p class="text-xs text-amber-900/80 font-mono leading-relaxed truncate flex-1"
-           x-text="task.outputTail || 'Waiting for output...'">Waiting for output...</p>
-        <span class="text-amber-600 text-xs cursor-blink shrink-0">▊</span>
-      </div>
-    </div>
-    {% endif %}
-
-    {# ══════════════════════════════════════════════ #}
-    {# ── DONE status block ── #}
-    {# ══════════════════════════════════════════════ #}
-    {% if task.status == 'done' %}
-    <div class="mb-3 flex items-center gap-3 rounded-xl bg-green-950/25 border border-green-800/20 px-3 py-2.5">
-      <div class="w-8 h-8 rounded-full bg-green-900/50 border border-green-700/40 flex items-center justify-center shrink-0">
-        <svg class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-        </svg>
-      </div>
-      <div class="min-w-0">
-        <p class="text-xs font-bold text-green-400">Completed</p>
-        {% if task.completed_at %}
-        <p class="text-xs text-green-700/80">{{ task.completed_at|naturaltime }}</p>
-        {% endif %}
-        {% if task.result_summary %}
-        <p class="text-xs text-gray-600 mt-0.5 line-clamp-1">{{ task.result_summary }}</p>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    {# ══════════════════════════════════════════════ #}
-    {# ── SCHEDULED status block ── #}
-    {# ══════════════════════════════════════════════ #}
-    {% if task.status == 'scheduled' %}
-    <div class="mb-3 flex items-center gap-3 rounded-xl bg-blue-950/20 border border-blue-800/20 px-3 py-2.5">
-      <div class="w-8 h-8 rounded-full bg-blue-900/40 border border-blue-700/30 flex items-center justify-center shrink-0">
-        <svg class="w-4 h-4 text-blue-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </div>
-      <div>
-        <p class="text-xs font-bold text-blue-400">Queued</p>
-        {% if task.next_run_at %}
-        <p class="text-xs text-blue-700/80">Runs {{ task.next_run_at|naturaltime }}</p>
-        {% else %}
-        <p class="text-xs text-blue-700/80">Waiting to run</p>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    {# ── Metadata footer chips ── #}
-    <div class="flex items-center gap-1.5 flex-wrap text-xs text-gray-600 mb-3">
-      {% if task.estimated_tokens %}
-      <span class="inline-flex items-center gap-1 bg-gray-800/70 px-2 py-0.5 rounded-md border border-gray-700/30">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        ~{{ task.estimated_tokens|intcomma }}
-      </span>
-      {% endif %}
-      {% if task.llm_config %}
-      <span class="inline-flex items-center gap-1 bg-gray-800/70 px-2 py-0.5 rounded-md border border-gray-700/30 max-w-[120px] truncate">
-        <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-        {{ task.llm_config.name }}
-      </span>
-      {% endif %}
-      <span class="ml-auto inline-flex items-center gap-1">
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        {{ task.created_at|naturaltime }}
-      </span>
-    </div>
-
-    {# ── Actions ── #}
-    <div class="flex items-center gap-1.5 pt-3 border-t border-gray-700/40
-                {% if task.status != 'in_progress' %}opacity-0 group-hover:opacity-100 transition-opacity duration-200{% endif %}">
+    {# Actions — icon-only, hover-reveal (always visible for in_progress) #}
+    <div class="flex items-center gap-0.5 mt-2 pt-1.5 border-t border-gray-700/25
+                {% if task.status != 'in_progress' %}opacity-0 group-hover:opacity-100 transition-opacity duration-150{% endif %}">
 
       {% if task.status == 'in_progress' %}
         <button onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-output', { detail: { taskId: {{ task.pk }} } }))"
-                class="flex items-center gap-1.5 text-xs bg-gray-700/70 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded-xl transition-colors font-medium">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          View log
+                title="View log"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-700/60 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
         </button>
         <button onclick="copyTmuxCommand({{ task.pk }})"
-                class="flex items-center gap-1.5 text-xs bg-amber-600/15 hover:bg-amber-600/25 border border-amber-600/25 text-amber-400 px-3 py-1.5 rounded-xl transition-colors font-medium">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          Jump in
+                title="Jump to tmux"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-amber-700/70 hover:text-amber-400 hover:bg-amber-900/20 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
         </button>
         <button hx-post="{% url 'tasks:cancel' task.pk %}"
-                hx-target="#task-card-{{ task.pk }}"
-                hx-swap="outerHTML"
+                hx-target="#task-card-{{ task.pk }}" hx-swap="outerHTML"
                 onclick="event.stopPropagation()"
-                class="ml-auto flex items-center gap-1.5 text-xs text-red-500 hover:text-red-400 px-3 py-1.5 rounded-xl hover:bg-red-900/20 transition-colors font-medium">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-          Cancel
+                title="Cancel"
+                class="ml-auto w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
         </button>
 
       {% elif task.status != 'done' %}
         <button hx-post="{% url 'tasks:trigger' task.pk %}"
-                hx-target="#task-card-{{ task.pk }}"
-                hx-swap="outerHTML"
+                hx-target="#task-card-{{ task.pk }}" hx-swap="outerHTML"
                 hx-indicator="#spin-{{ task.pk }}"
                 onclick="event.stopPropagation()"
-                class="flex items-center gap-1.5 text-xs bg-indigo-600/15 hover:bg-indigo-600/35 border border-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-xl transition-colors font-medium">
+                title="Run now"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-indigo-500/70 hover:text-indigo-300 hover:bg-indigo-900/25 transition-colors">
           <svg id="spin-{{ task.pk }}" class="w-3.5 h-3.5 htmx-indicator animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
           </svg>
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Run now
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
         </button>
         <a href="{% url 'tasks:detail' task.pk %}"
            onclick="event.stopPropagation()"
-           class="ml-auto flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-300 px-3 py-1.5 rounded-xl hover:bg-gray-700/50 transition-colors font-medium">
-          Detail
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+           title="Edit"
+           class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-300 hover:bg-gray-700/50 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
         </a>
 
       {% else %}
         <a href="{% url 'tasks:detail' task.pk %}"
            onclick="event.stopPropagation()"
-           class="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-400 px-3 py-1.5 rounded-xl hover:bg-gray-700/30 transition-colors font-medium">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-          View result
+           title="View result"
+           class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-400 hover:bg-gray-700/30 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
         </a>
       {% endif %}
 
