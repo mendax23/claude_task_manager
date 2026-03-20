@@ -62,3 +62,16 @@ def check_budget_reset():
     """Called hourly — resets weekly token counters if reset day/time has passed."""
     from apps.scheduling.services.budget_tracker import BudgetTracker
     BudgetTracker().reset_if_needed()
+
+
+@shared_task
+def prune_idle_events(days: int = 7):
+    """Called daily — deletes IdleEvent records older than N days."""
+    from datetime import timedelta
+    from django.utils import timezone as tz
+    from apps.scheduling.models import IdleEvent
+
+    cutoff = tz.now() - timedelta(days=days)
+    count, _ = IdleEvent.objects.filter(created_at__lt=cutoff).delete()
+    if count:
+        logger.info("Pruned %d idle events older than %d days", count, days)

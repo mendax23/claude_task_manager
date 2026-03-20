@@ -34,4 +34,9 @@ CELERYBEAT_SCHEDULE = {
         "task": "apps.scheduling.celery_tasks.check_budget_reset",
         "schedule": crontab(minute=0, hour="*"),
     },
+    # Prune old IdleEvent records (daily at 3am)
+    "scheduling.prune_idle_events": {
+        "task": "apps.scheduling.celery_tasks.prune_idle_events",
+        "schedule": crontab(minute=0, hour=3),
+    },
 }
