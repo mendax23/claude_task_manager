@@ -145,7 +145,8 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
+<body class="bg-gray-950 text-gray-100 min-h-screen antialiased"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
   {% include "components/token_budget_bar.html" %}
 

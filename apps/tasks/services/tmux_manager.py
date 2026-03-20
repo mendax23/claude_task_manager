@@ -24,8 +24,16 @@ class TmuxManager:
                 raise RuntimeError("libtmux not installed: pip install libtmux")
         return self._server
 
+    def _find_session(self, session_name: str):
+        results = self.server.sessions.filter(session_name=session_name)
+        return results[0] if results else None
+
+    def _find_window(self, session, window_name: str):
+        results = session.windows.filter(window_name=window_name)
+        return results[0] if results else None
+
     def _get_or_create_base_session(self):
-        session = self.server.find_where({"session_name": self.prefix})
+        session = self._find_session(self.prefix)
         if not session:
             session = self.server.new_session(session_name=self.prefix, detach=True)
         return session
@@ -40,10 +48,10 @@ class TmuxManager:
     def send_command(self, session_window: str, command: str):
         """Sends a command to a tmux pane."""
         session_name, window_name = session_window.rsplit(":", 1)
-        session = self.server.find_where({"session_name": session_name})
+        session = self._find_session(session_name)
         if not session:
             raise RuntimeError(f"tmux session '{session_name}' not found")
-        window = session.find_where({"window_name": window_name})
+        window = self._find_window(session, window_name)
         if not window:
             raise RuntimeError(f"tmux window '{window_name}' not found")
         pane = window.panes[0]
@@ -53,10 +61,10 @@ class TmuxManager:
         """Captures recent output from a tmux pane."""
         try:
             session_name, window_name = session_window.rsplit(":", 1)
-            session = self.server.find_where({"session_name": session_name})
+            session = self._find_session(session_name)
             if not session:
                 return ""
-            window = session.find_where({"window_name": window_name})
+            window = self._find_window(session, window_name)
             if not window:
                 return ""
             pane = window.panes[0]
@@ -72,10 +80,10 @@ class TmuxManager:
             return
         try:
             session_name, window_name = session_window.rsplit(":", 1)
-            session = self.server.find_where({"session_name": session_name})
+            session = self._find_session(session_name)
             if not session:
                 return
-            window = session.find_where({"window_name": window_name})
+            window = self._find_window(session, window_name)
             if window:
                 window.kill_window()
         except Exception as e:
@@ -87,17 +95,17 @@ class TmuxManager:
             return False
         try:
             session_name, window_name = session_window.rsplit(":", 1)
-            session = self.server.find_where({"session_name": session_name})
+            session = self._find_session(session_name)
             if not session:
                 return False
-            return bool(session.find_where({"window_name": window_name}))
+            return bool(self._find_window(session, window_name))
         except Exception:
             return False
 
     def list_active_sessions(self) -> list[dict]:
         """Lists all agentqueue tmux windows."""
         try:
-            session = self.server.find_where({"session_name": self.prefix})
+            session = self._find_session(self.prefix)
             if not session:
                 return []
             return [
