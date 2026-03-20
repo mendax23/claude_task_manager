@@ -35,7 +35,8 @@
      hx-get="{% url 'tasks:detail' task.pk %}?partial=card"
      hx-trigger="server:update"
      hx-target="#task-card-{{ task.pk }}"
-     hx-swap="outerHTML">
+     hx-swap="outerHTML"
+     @click="$dispatch('open-task-detail', { taskId: {{ task.pk }} })">
 
   {# Priority accent stripe #}
   <div class="absolute left-0 top-0 bottom-0 w-0.5
@@ -138,7 +139,8 @@
 
     {# Actions — icon-only, hover-reveal (always visible for in_progress) #}
     <div class="flex items-center gap-0.5 mt-2 pt-1.5 border-t border-gray-700/25
-                {% if task.status != 'in_progress' %}opacity-0 group-hover:opacity-100 transition-opacity duration-150{% endif %}">
+                {% if task.status != 'in_progress' %}opacity-0 group-hover:opacity-100 transition-opacity duration-150{% endif %}"
+         @click.stop>
 
       {% if task.status == 'in_progress' %}
         <button onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-output', { detail: { taskId: {{ task.pk }} } }))"

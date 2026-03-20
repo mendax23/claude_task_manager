@@ -48,42 +48,48 @@ class ClaudeMaxProvider(LLMProvider):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate(input=prompt.encode())
         except FileNotFoundError:
             raise ProviderError(
                 f"Claude CLI not found at '{cli_path}'. "
                 "Install Claude Code and ensure it's in your PATH."
             )
 
-        if proc.returncode != 0:
-            raise ProviderTransientError(
-                f"Claude CLI exited with code {proc.returncode}: {stderr.decode()}"
-            )
+        # Write prompt and close stdin so claude starts processing immediately
+        proc.stdin.write(prompt.encode())
+        await proc.stdin.drain()
+        proc.stdin.close()
 
-        # Parse NDJSON stream
+        # Drain stderr in background to prevent buffer deadlock
+        stderr_task = asyncio.create_task(proc.stderr.read())
+
+        # Read stdout line by line — true streaming, not buffered
         total_tokens = 0
-        for line in stdout.decode().splitlines():
-            line = line.strip()
+        async for line_bytes in proc.stdout:
+            line = line_bytes.decode().strip()
             if not line:
                 continue
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
-                # Plain text output fallback
                 yield LLMChunk(text=line)
                 continue
 
             event_type = event.get("type", "")
             if event_type == "content_block_delta":
-                delta = event.get("delta", {})
-                text = delta.get("text", "")
+                text = event.get("delta", {}).get("text", "")
                 if text:
                     yield LLMChunk(text=text)
             elif event_type == "message_delta":
-                usage = event.get("usage", {})
-                total_tokens = usage.get("output_tokens", 0)
+                total_tokens = event.get("usage", {}).get("output_tokens", 0)
             elif event_type == "message_stop":
                 yield LLMChunk(text="", is_final=True, tokens_used=total_tokens)
+
+        await proc.wait()
+        stderr_data = await stderr_task
+        if proc.returncode != 0:
+            raise ProviderTransientError(
+                f"Claude CLI exited with code {proc.returncode}: {stderr_data.decode()[:500]}"
+            )
 
     async def health_check(self) -> bool:
         cli_path = self.config.claude_cli_path or "claude"

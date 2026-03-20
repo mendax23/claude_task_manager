@@ -46,10 +46,13 @@ def task_create(request):
 
 
 def task_detail(request, pk):
-    task = get_object_or_404(Task, pk=pk)
-    # HTMX partial: return just the card for live updates
-    if request.GET.get("partial") == "card":
+    task = get_object_or_404(Task.objects.select_related("project", "llm_config"), pk=pk)
+    partial = request.GET.get("partial")
+    if partial == "card":
         return render(request, "tasks/partials/task_card.html", {"task": task})
+    if partial == "panel":
+        runs = task.runs.order_by("-started_at")[:8]
+        return render(request, "tasks/partials/detail_panel.html", {"task": task, "runs": runs})
     runs = task.runs.order_by("-started_at")[:10]
     return render(request, "tasks/detail.html", {"task": task, "runs": runs})
 
@@ -85,12 +88,14 @@ def task_trigger(request, pk):
     try:
         run_task.delay(task.pk, run.pk)
     except Exception:
-        run.delete()
-        task.status = TaskStatus.BACKLOG
-        task.save(update_fields=["status", "updated_at"])
-        return _error_response(
-            "Worker unavailable — Celery isn't running. Start it with: make worker"
-        )
+        # No Celery/Redis available — run directly in a background thread
+        import threading
+        from apps.tasks.services.task_runner import TaskRunner
+
+        def _run():
+            TaskRunner().run(task, run)
+
+        threading.Thread(target=_run, daemon=True).start()
 
     return render(request, "tasks/partials/task_card.html", {"task": task})
 

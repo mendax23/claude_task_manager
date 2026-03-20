@@ -13,7 +13,7 @@ shell:
 	.venv/bin/python manage.py shell_plus
 
 dev:
-	.venv/bin/daphne -b 0.0.0.0 -p 3333 config.asgi:application
+	.venv/bin/uvicorn config.asgi:application --host 0.0.0.0 --port 3333 --reload --reload-include "*.html" --reload-include "*.css" --reload-include "*.js"
 
 worker:
 	.venv/bin/celery -A celery_app worker -l info

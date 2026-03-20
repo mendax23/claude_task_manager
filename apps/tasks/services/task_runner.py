@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from django.conf import settings
 from django.utils import timezone
 from asgiref.sync import async_to_sync
@@ -33,6 +34,7 @@ class TaskRunner:
     async def _run_async(self, task: Task, run: TaskRun):
         prefix = settings.AGENTQUEUE.get("TMUX_SESSION_PREFIX", "agentqueue")
         session_window = f"{prefix}:task-{task.pk}"
+        output_file = f"/tmp/aq_task_{task.pk}_{run.pk}.txt"
 
         try:
             # Create tmux window
@@ -51,6 +53,18 @@ class TaskRunner:
 
             provider = LLMProvider.from_config(llm_config)
 
+            # Write a header to the output file, then tail -f it in tmux
+            # so the user sees live output when they attach
+            with open(output_file, "w") as f:
+                f.write(f"AgentQueue · Task #{task.pk}\n")
+                f.write(f"{'─' * 60}\n")
+                f.write(f"{task.title}\n")
+                f.write(f"Provider: {llm_config.name}\n")
+                f.write(f"{'─' * 60}\n\n")
+
+            await asyncio.sleep(0.3)  # let tmux shell initialise
+            self.tmux.send_command(session_window, f"tail -f {output_file}")
+
             # Build prompt with repo context
             prompt = self._build_full_prompt(task)
             request = LLMRequest(
@@ -60,13 +74,15 @@ class TaskRunner:
                 system=llm_config.system_prompt,
             )
 
-            # Stream output
+            # Stream output — broadcast to WebSocket AND mirror to file for tmux
             full_output = []
             tokens_used = 0
             async for chunk in provider.stream(request):
                 if chunk.text:
                     full_output.append(chunk.text)
                     await self._broadcast_output_chunk(task.pk, chunk.text)
+                    with open(output_file, "a") as f:
+                        f.write(chunk.text)
                 if chunk.is_final:
                     tokens_used = chunk.tokens_used
 
