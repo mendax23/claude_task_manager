@@ -19,12 +19,18 @@ KANBAN_COLUMNS = [
 def dashboard(request):
     tasks = list(
         Task.objects.select_related("project", "llm_config")
-        .exclude(status__in=[TaskStatus.CANCELLED, TaskStatus.FAILED])
+        .exclude(status=TaskStatus.CANCELLED)
         .order_by("kanban_order", "-priority", "created_at")
     )
 
+    def tasks_for_column(col_key):
+        # Failed tasks appear in backlog so they're visible and re-runnable
+        if col_key == TaskStatus.BACKLOG:
+            return [t for t in tasks if t.status in (TaskStatus.BACKLOG, TaskStatus.FAILED)]
+        return [t for t in tasks if t.status == col_key]
+
     columns = [
-        {**col, "tasks": [t for t in tasks if t.status == col["key"]]}
+        {**col, "tasks": tasks_for_column(col["key"])}
         for col in KANBAN_COLUMNS
     ]
 

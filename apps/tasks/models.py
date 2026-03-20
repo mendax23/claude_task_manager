@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 from apps.core.models import TimeStampedModel
@@ -63,7 +65,7 @@ class Task(TimeStampedModel):
         related_name="tasks",
     )
     title = models.CharField(max_length=500)
-    prompt = models.TextField()
+    prompt = models.TextField(validators=[MaxLengthValidator(50000)])
     task_type = models.CharField(
         max_length=20, choices=TaskType.choices, default=TaskType.ONE_SHOT
     )
@@ -109,6 +111,19 @@ class Task(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        if self.task_type == TaskType.EVERGREEN and self.recurrence_rule:
+            try:
+                from croniter import croniter
+                if not croniter.is_valid(self.recurrence_rule):
+                    raise ValidationError(
+                        {"recurrence_rule": "Invalid cron expression. Example: '0 9 * * 1' (Mon 9am)."}
+                    )
+            except ImportError:
+                pass
+        if self.chain_id and self.chain_order < 0:
+            raise ValidationError({"chain_order": "Chain order must be zero or positive."})
 
     def mark_done(self, summary: str = ""):
         self.status = TaskStatus.DONE

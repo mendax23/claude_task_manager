@@ -1,6 +1,12 @@
 {% load humanize %}
 <div x-data="{ outputEl: null }"
-     x-init="outputEl = $el.querySelector('#dp-output'); $watch(() => $store.agentqueue.activeTasks[{{ task.pk }}]?.outputLog, () => { if (outputEl) requestAnimationFrame(() => outputEl.scrollTop = outputEl.scrollHeight) })">
+     x-init="outputEl = $el.querySelector('#dp-output'); $watch(() => $store.agentqueue.activeTasks[{{ task.pk }}]?.outputLog, () => { if (outputEl) requestAnimationFrame(() => outputEl.scrollTop = outputEl.scrollHeight) })"
+     {% if task.status == 'in_progress' %}
+     hx-get="{% url 'tasks:detail' task.pk %}?partial=panel"
+     hx-trigger="every 5s"
+     hx-target="#task-detail-body"
+     hx-swap="innerHTML"
+     {% endif %}>
 
   {# ── Title & Status ── #}
   <div class="px-5 pt-5 pb-4 border-b border-gray-800/60">
@@ -54,16 +60,20 @@
 
   {# ── Actions ── #}
   <div class="px-5 py-2.5 border-b border-gray-800/60 flex items-center gap-2 flex-wrap">
-    {% if task.status == 'backlog' or task.status == 'scheduled' or task.status == 'failed' %}
+    {% if task.status == 'backlog' or task.status == 'scheduled' or task.status == 'failed' or task.status == 'done' %}
     <button hx-post="{% url 'tasks:trigger' task.pk %}"
             hx-target="#task-card-{{ task.pk }}"
             hx-swap="outerHTML"
             hx-on::after-request="window.dispatchEvent(new CustomEvent('close-task-detail'))"
-            class="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-medium transition-colors">
+            class="flex items-center gap-1.5 text-xs {% if task.status == 'done' %}bg-green-700/20 hover:bg-green-700/35 border border-green-600/30 text-green-400{% else %}bg-indigo-600 hover:bg-indigo-500 text-white{% endif %} px-3 py-1.5 rounded-lg font-medium transition-colors">
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        {% if task.status == 'done' %}
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        {% else %}
         <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+        {% endif %}
       </svg>
-      Run now
+      {% if task.status == 'done' %}Run again{% else %}Run now{% endif %}
     </button>
     {% endif %}
     {% if task.status == 'in_progress' %}

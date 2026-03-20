@@ -1,5 +1,6 @@
 import logging
 from celery import shared_task
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -48,17 +49,19 @@ def advance_chains():
 
     chains = TaskChain.objects.filter(status=TaskStatus.IN_PROGRESS)
     for chain in chains:
-        # Check if current step's task is done
-        current_tasks = chain.tasks.filter(chain_order=chain.current_step)
-        if current_tasks.exists() and all(t.status == TaskStatus.DONE for t in current_tasks):
-            chain.advance()
-            next_task = chain.get_next_task()
-            if next_task:
-                next_run = TaskRun.objects.create(task=next_task)
-                next_task.status = TaskStatus.IN_PROGRESS
-                next_task.save(update_fields=["status"])
-                run_task.delay(next_task.pk, next_run.pk)
-            else:
-                # All steps done
-                chain.status = TaskStatus.DONE
-                chain.save(update_fields=["status"])
+        with transaction.atomic():
+            chain = TaskChain.objects.select_for_update().get(pk=chain.pk)
+            if chain.status != TaskStatus.IN_PROGRESS:
+                continue
+            current_tasks = chain.tasks.filter(chain_order=chain.current_step)
+            if current_tasks.exists() and all(t.status == TaskStatus.DONE for t in current_tasks):
+                chain.advance()
+                next_task = chain.get_next_task()
+                if next_task:
+                    next_run = TaskRun.objects.create(task=next_task)
+                    next_task.status = TaskStatus.IN_PROGRESS
+                    next_task.save(update_fields=["status"])
+                    run_task.delay(next_task.pk, next_run.pk)
+                else:
+                    chain.status = TaskStatus.DONE
+                    chain.save(update_fields=["status"])

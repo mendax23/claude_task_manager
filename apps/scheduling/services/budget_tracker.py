@@ -83,11 +83,30 @@ class BudgetTracker:
     def _should_reset(self, budget, now) -> bool:
         if not budget.last_reset_at:
             return True
-        reset_weekday = budget.reset_weekday  # 1=Monday
+
+        reset_weekday = budget.reset_weekday  # 1=Monday (ISO weekday)
         reset_time = budget.reset_time
-        # Find the most recent reset point
-        days_since_reset = (now - budget.last_reset_at).days
-        return days_since_reset >= 7
+
+        # Convert ISO weekday (1=Mon) to Python isoweekday() for comparison
+        current_weekday = now.isoweekday()  # 1=Monday, 7=Sunday
+        current_time = now.time()
+
+        # Build the most recent reset point: last occurrence of reset_weekday at reset_time
+        days_since_target_day = (current_weekday - reset_weekday) % 7
+        candidate_date = (now - timedelta(days=days_since_target_day)).date()
+
+        from datetime import datetime
+        candidate_dt = datetime.combine(candidate_date, reset_time)
+        if now.tzinfo:
+            from django.utils import timezone as tz
+            candidate_dt = tz.make_aware(candidate_dt, now.tzinfo)
+
+        # If candidate is in the future (same weekday but time hasn't passed), go back a week
+        if candidate_dt > now:
+            candidate_dt -= timedelta(days=7)
+
+        # Reset if the last reset was before the most recent valid reset point
+        return budget.last_reset_at < candidate_dt
 
     def _pct_week_elapsed(self, budget) -> float:
         if not budget.last_reset_at:

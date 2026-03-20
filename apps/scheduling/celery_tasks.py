@@ -2,6 +2,7 @@ import logging
 from celery import shared_task
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,15 @@ def check_and_trigger():
         return
 
     logger.info("SmartScheduler launching task: %s", task.title)
-    run = TaskRun.objects.create(task=task)
-    task.status = TaskStatus.IN_PROGRESS
-    task.save(update_fields=["status", "updated_at"])
+    with transaction.atomic():
+        from apps.tasks.models import Task as TaskModel
+        task = TaskModel.objects.select_for_update().get(pk=task.pk)
+        if task.status not in (TaskStatus.BACKLOG, TaskStatus.SCHEDULED):
+            logger.info("Task %s status changed before launch, skipping", task.title)
+            return
+        run = TaskRun.objects.create(task=task)
+        task.status = TaskStatus.IN_PROGRESS
+        task.save(update_fields=["status", "updated_at"])
     run_task.delay(task.pk, run.pk)
 
 

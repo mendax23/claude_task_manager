@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from apps.core.models import TimeStampedModel
 
@@ -39,6 +40,13 @@ class LLMConfig(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.get_provider_type_display()})"
+
+    def clean(self):
+        api_required = {ProviderType.ANTHROPIC, ProviderType.OPENROUTER}
+        if self.provider_type in api_required and not self.api_key:
+            raise ValidationError(
+                {"api_key": f"API key is required for {self.get_provider_type_display()}."}
+            )
 
     def save(self, *args, **kwargs):
         # Ensure only one default provider

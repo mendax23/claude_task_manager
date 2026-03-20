@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
+from django.db import transaction
 from .models import Task, TaskStatus
 from .forms import TaskForm
 
@@ -62,28 +63,32 @@ def task_trigger(request, pk):
     from apps.tasks.celery_tasks import run_task
     from apps.tasks.models import TaskRun
 
-    task = get_object_or_404(
-        Task.objects.select_related("project", "llm_config"), pk=pk
-    )
+    triggerable = {
+        TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED, TaskStatus.CANCELLED,
+    }
 
-    triggerable = {TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED, TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED}
-    if task.status not in triggerable:
-        return _error_response(f"Can't run a task that is already '{task.get_status_display()}'.")
-
-    if task.status == TaskStatus.IN_PROGRESS:
-        if task.runs.filter(status=TaskStatus.IN_PROGRESS).exists():
-            return _error_response("This task is already running.")
-
-    llm_config = task.get_effective_llm_config()
-    if not llm_config:
-        return _error_response(
-            f"No AI provider configured for \"{task.title}\". "
-            "Add a provider in Settings → Providers and assign it to this project."
+    with transaction.atomic():
+        task = get_object_or_404(
+            Task.objects.select_for_update().select_related("project", "llm_config"), pk=pk
         )
 
-    run = TaskRun.objects.create(task=task)
-    task.status = TaskStatus.IN_PROGRESS
-    task.save(update_fields=["status", "updated_at"])
+        if task.status == TaskStatus.IN_PROGRESS:
+            if task.runs.filter(status=TaskStatus.IN_PROGRESS).exists():
+                return _error_response("This task is already running.")
+
+        if task.status not in triggerable and task.status != TaskStatus.IN_PROGRESS:
+            return _error_response(f"Can't run a task that is already '{task.get_status_display()}'.")
+
+        llm_config = task.get_effective_llm_config()
+        if not llm_config:
+            return _error_response(
+                f"No AI provider configured for \"{task.title}\". "
+                "Add a provider in Settings → Providers and assign it to this project."
+            )
+
+        run = TaskRun.objects.create(task=task)
+        task.status = TaskStatus.IN_PROGRESS
+        task.save(update_fields=["status", "updated_at"])
 
     try:
         run_task.delay(task.pk, run.pk)
@@ -104,27 +109,28 @@ def task_trigger(request, pk):
 
 @require_POST
 def task_cancel(request, pk):
-    task = get_object_or_404(Task, pk=pk)
-    if task.status != TaskStatus.IN_PROGRESS:
-        return _error_response("Only running tasks can be cancelled.")
+    with transaction.atomic():
+        task = get_object_or_404(Task.objects.select_for_update(), pk=pk)
+        if task.status != TaskStatus.IN_PROGRESS:
+            return _error_response("Only running tasks can be cancelled.")
 
-    run = task.runs.filter(status=TaskStatus.IN_PROGRESS).first()
-    if run:
-        try:
-            from apps.tasks.services.tmux_manager import TmuxManager
-            TmuxManager().kill_session(run.tmux_session)
-        except Exception:
-            pass
-        run.status = TaskStatus.CANCELLED
-        run.save(update_fields=["status"])
+        run = task.runs.filter(status=TaskStatus.IN_PROGRESS).first()
+        if run:
+            try:
+                from apps.tasks.services.tmux_manager import TmuxManager
+                TmuxManager().kill_session(run.tmux_session)
+            except Exception:
+                pass
+            run.status = TaskStatus.CANCELLED
+            run.save(update_fields=["status"])
 
-    # Default to backlog so cancelled tasks can be re-run immediately
-    next_status = request.POST.get("next_status", TaskStatus.BACKLOG)
-    if next_status not in (TaskStatus.CANCELLED, TaskStatus.BACKLOG, TaskStatus.SCHEDULED):
-        next_status = TaskStatus.BACKLOG
+        # Default to backlog so cancelled tasks can be re-run immediately
+        next_status = request.POST.get("next_status", TaskStatus.BACKLOG)
+        if next_status not in (TaskStatus.CANCELLED, TaskStatus.BACKLOG, TaskStatus.SCHEDULED):
+            next_status = TaskStatus.BACKLOG
 
-    task.status = next_status
-    task.save(update_fields=["status", "updated_at"])
+        task.status = next_status
+        task.save(update_fields=["status", "updated_at"])
 
     response = render(request, "tasks/partials/task_card.html", {"task": task})
     response["HX-Trigger"] = json.dumps({"agentqueue:success": {"message": f"\"{task.title}\" cancelled."}})
