@@ -4,11 +4,11 @@
 {% block title %}Dashboard — AgentQueue{% endblock %}
 
 {% block content %}
-<div x-data="{ modalOpen: false, search: '' }"
+<div x-data="{ modalOpen: false, search: '', projectFilter: '' }"
      @keydown.escape.window="modalOpen = false"
      @keydown.n.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { modalOpen = true; $event.preventDefault(); }"
      @keydown.slash.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { $el.querySelector('#task-search').focus(); $event.preventDefault(); }"
-     x-effect="filterCards(search)"
+     x-effect="filterCards(search, projectFilter)"
      x-init="$watch('modalOpen', v => { if(v) { this._prevFocus = document.activeElement; setTimeout(() => document.querySelector('#create-modal-fields input[name=title]')?.focus(), 120); } else { $nextTick(() => this._prevFocus?.focus()); } })">
 
 {# Desktop notification prompt #}
@@ -47,6 +47,19 @@
       <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-700 font-mono pointer-events-none hidden sm:inline"
             x-show="!search">/</span>
     </div>
+    {# Project filter #}
+    {% if project_count > 1 %}
+    <select x-model="projectFilter"
+            class="bg-gray-800/60 border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-gray-300
+                   focus:outline-none focus:border-indigo-500/60 appearance-none cursor-pointer
+                   order-last sm:order-none"
+            style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%236b7280%22 stroke-width=%222%22%3E%3Cpath stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22M19 9l-7 7-7-7%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 8px center; background-size: 14px; padding-right: 28px;">
+      <option value="">All projects</option>
+      {% for p in projects %}
+      <option value="{{ p.name|lower }}">{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
 
     {% if scheduled_count %}
     <div class="flex items-center gap-1" x-data="{ confirm: false }">
@@ -704,18 +717,17 @@
 {% block extra_scripts %}
 <script src="/static/js/kanban.js"></script>
 <script>
-  // Live task filter — shows/hides cards based on search term
-  function filterCards(term) {
+  // Live task filter — shows/hides cards based on search term and project
+  function filterCards(term, projectFilter) {
     const q = (term || '').toLowerCase().trim();
+    const pf = (projectFilter || '').toLowerCase().trim();
     document.querySelectorAll('.task-card').forEach(card => {
-      if (!q) {
-        card.style.display = '';
-        return;
-      }
       const title   = card.dataset.title || '';
       const tags    = card.dataset.tags  || '';
       const project = card.dataset.project || '';
-      card.style.display = (title.includes(q) || tags.includes(q) || project.includes(q)) ? '' : 'none';
+      const matchesSearch = !q || title.includes(q) || tags.includes(q) || project.includes(q);
+      const matchesProject = !pf || project === pf;
+      card.style.display = (matchesSearch && matchesProject) ? '' : 'none';
     });
     // Update column count badges to reflect visible cards only
     if (typeof Alpine !== 'undefined' && Alpine.store('agentqueue')) {

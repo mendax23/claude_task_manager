@@ -1567,3 +1567,188 @@ def test_task_reorder_post(client, task):
     task.refresh_from_db()
     assert task.status == "scheduled"
     assert task.kanban_order == 5
+
+
+# ── Copy URL Button (Detail Page) ──
+
+
+@pytest.mark.django_db
+def test_detail_has_copy_url_button(client, task):
+    """Detail page contains a copy URL button."""
+    response = client.get(f"/tasks/{task.pk}/")
+    assert response.status_code == 200
+    assert b"Copy task URL" in response.content
+
+
+@pytest.mark.django_db
+def test_detail_has_copy_id_button(client, task):
+    """Detail page contains a copy task ID button."""
+    response = client.get(f"/tasks/{task.pk}/")
+    assert response.status_code == 200
+    assert b"Copy task ID" in response.content
+
+
+# ── Priority / Project Filters (Task List) ──
+
+
+@pytest.mark.django_db
+def test_task_list_has_priority_filter(client, task):
+    """Task list page has priority filter dropdown."""
+    response = client.get("/tasks/")
+    assert response.status_code == 200
+    assert b"priorityFilter" in response.content
+    assert b"All priorities" in response.content
+
+
+@pytest.mark.django_db
+def test_task_list_has_project_filter(client, task):
+    """Task list page has project filter dropdown."""
+    response = client.get("/tasks/")
+    assert response.status_code == 200
+    assert b"projectFilter" in response.content
+    assert b"All projects" in response.content
+
+
+@pytest.mark.django_db
+def test_task_list_rows_have_priority_data(client, task):
+    """Task list rows include data-priority for client-side filtering."""
+    response = client.get("/tasks/")
+    content = response.content.decode()
+    assert f'data-priority="{task.priority}"' in content
+
+
+@pytest.mark.django_db
+def test_task_list_clear_all_filters(client, task):
+    """Task list has a Clear all button for resetting filters."""
+    response = client.get("/tasks/")
+    assert b"Clear all" in response.content
+
+
+# ── Context Menu (Task List) ──
+
+
+@pytest.mark.django_db
+def test_task_list_has_context_menu(client, task):
+    """Task list includes right-click context menu markup."""
+    response = client.get("/tasks/")
+    content = response.content.decode()
+    assert "contextmenu" in content
+    assert "Open in new tab" in content
+    assert "Copy link" in content
+    assert "Copy title" in content
+    assert "Run task" in content
+    assert "Duplicate" in content
+
+
+# ── Sort Persistence ──
+
+
+@pytest.mark.django_db
+def test_task_list_sort_persistence_script(client, task):
+    """Task list includes localStorage sort persistence script."""
+    response = client.get("/tasks/")
+    assert b"aq_sort" in response.content
+    assert b"localStorage" in response.content
+
+
+# ── Unsaved Changes Warning ──
+
+
+@pytest.mark.django_db
+def test_edit_form_has_beforeunload_warning(client, task):
+    """Edit form includes beforeunload handler for unsaved changes."""
+    response = client.get(f"/tasks/{task.pk}/edit/")
+    assert response.status_code == 200
+    assert b"beforeunload" in response.content
+
+
+@pytest.mark.django_db
+def test_edit_form_has_dirty_tracking(client, task):
+    """Edit form tracks dirty state."""
+    response = client.get(f"/tasks/{task.pk}/edit/")
+    assert b"dirty" in response.content
+    assert b"unsaved" in response.content
+
+
+# ── Bulk Actions ──
+
+
+@pytest.mark.django_db
+def test_bulk_action_set_status(client, project, llm_config):
+    """Bulk action can change multiple tasks to a specific status."""
+    t1 = Task.objects.create(project=project, title="Bulk1", prompt="p",
+                             task_type="one_shot", status="backlog")
+    t2 = Task.objects.create(project=project, title="Bulk2", prompt="p",
+                             task_type="one_shot", status="backlog")
+    response = client.post("/tasks/bulk/", {
+        "task_ids": [t1.pk, t2.pk],
+        "action": "scheduled",
+    })
+    assert response.status_code == 200
+    t1.refresh_from_db()
+    t2.refresh_from_db()
+    assert t1.status == "scheduled"
+    assert t2.status == "scheduled"
+
+
+@pytest.mark.django_db
+def test_bulk_action_cancel(client, project, llm_config):
+    """Bulk cancel only affects in_progress tasks."""
+    t1 = Task.objects.create(project=project, title="Running1", prompt="p",
+                             task_type="one_shot", status="in_progress")
+    t2 = Task.objects.create(project=project, title="Backlog1", prompt="p",
+                             task_type="one_shot", status="backlog")
+    response = client.post("/tasks/bulk/", {
+        "task_ids": [t1.pk, t2.pk],
+        "action": "cancel",
+    })
+    assert response.status_code == 200
+    t1.refresh_from_db()
+    t2.refresh_from_db()
+    assert t1.status == "backlog"  # cancelled → backlog
+    assert t2.status == "backlog"  # unchanged
+
+
+@pytest.mark.django_db
+def test_bulk_action_unknown_action(client, task):
+    """Unknown bulk action returns error."""
+    response = client.post("/tasks/bulk/", {
+        "task_ids": [task.pk],
+        "action": "nonexistent",
+    })
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_bulk_action_empty_ids(client):
+    """Bulk action with no task IDs returns error."""
+    response = client.post("/tasks/bulk/", {
+        "action": "delete",
+    })
+    assert response.status_code == 400
+
+
+# ── Export with Priority Filter ──
+
+
+@pytest.mark.django_db
+def test_export_with_status_filter(client, project, llm_config):
+    """Export respects status filter parameter."""
+    Task.objects.create(project=project, title="Done Task", prompt="p",
+                        task_type="one_shot", status="done")
+    Task.objects.create(project=project, title="Backlog Task", prompt="p",
+                        task_type="one_shot", status="backlog")
+    response = client.get("/tasks/export/?status=done")
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Done Task" in content
+    assert "Backlog Task" not in content
+
+
+@pytest.mark.django_db
+def test_export_invalid_status_ignored(client, task):
+    """Export with invalid status returns all tasks."""
+    response = client.get("/tasks/export/?status=nonexistent")
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert task.title in content

@@ -7,7 +7,8 @@
   showAdvanced: {{ task.llm_config_id|yesno:'true,false' }}
 }" class="p-5"
    @input="dirty = true"
-   @change="dirty = true">
+   @change="dirty = true"
+   x-effect="const handler = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }; window.addEventListener('beforeunload', handler); $cleanup(() => window.removeEventListener('beforeunload', handler))">
 
   <form hx-post="{% url 'tasks:edit' task.pk %}"
         hx-target="#task-edit-form-{{ task.pk }}"
