@@ -214,6 +214,28 @@ document.addEventListener('alpine:init', () => {
       }, ms);
     },
 
+    _playSound(type) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.value = 0.08;
+        if (type === 'success') {
+          osc.frequency.value = 880;
+          osc.type = 'sine';
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        } else {
+          osc.frequency.value = 330;
+          osc.type = 'triangle';
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        }
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      } catch (_) {}
+    },
+
     _desktopNotify(title, body) {
       if (!('Notification' in window)) return;
       if (Notification.permission === 'granted') {
