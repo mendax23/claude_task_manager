@@ -1,9 +1,17 @@
+import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from .models import Task, TaskStatus
 from .forms import TaskForm
+
+
+def _error_response(message, status=400):
+    """Return an HTMX-friendly error: fires the agentqueue:error client-side event."""
+    response = HttpResponse(status=status)
+    response["HX-Trigger"] = json.dumps({"agentqueue:error": {"message": message}})
+    return response
 
 
 def task_list(request):
@@ -48,17 +56,41 @@ def task_detail(request, pk):
 
 @require_POST
 def task_trigger(request, pk):
-    task = get_object_or_404(Task, pk=pk)
-    if task.status not in (TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED):
-        return JsonResponse({"error": "Task is not in a triggerable state."}, status=400)
-
     from apps.tasks.celery_tasks import run_task
     from apps.tasks.models import TaskRun
+
+    task = get_object_or_404(
+        Task.objects.select_related("project", "llm_config"), pk=pk
+    )
+
+    triggerable = {TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED, TaskStatus.IN_PROGRESS}
+    if task.status not in triggerable:
+        return _error_response(f"Can't run a task that is already '{task.get_status_display()}'.")
+
+    if task.status == TaskStatus.IN_PROGRESS:
+        if task.runs.filter(status=TaskStatus.IN_PROGRESS).exists():
+            return _error_response("This task is already running.")
+
+    llm_config = task.get_effective_llm_config()
+    if not llm_config:
+        return _error_response(
+            f"No AI provider configured for \"{task.title}\". "
+            "Add a provider in Settings → Providers and assign it to this project."
+        )
 
     run = TaskRun.objects.create(task=task)
     task.status = TaskStatus.IN_PROGRESS
     task.save(update_fields=["status", "updated_at"])
-    run_task.delay(task.pk, run.pk)
+
+    try:
+        run_task.delay(task.pk, run.pk)
+    except Exception:
+        run.delete()
+        task.status = TaskStatus.BACKLOG
+        task.save(update_fields=["status", "updated_at"])
+        return _error_response(
+            "Worker unavailable — Celery isn't running. Start it with: make worker"
+        )
 
     return render(request, "tasks/partials/task_card.html", {"task": task})
 

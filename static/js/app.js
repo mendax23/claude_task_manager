@@ -81,9 +81,9 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    notify(message, ms = 6000) {
+    notify(message, type = 'info', ms = 6000) {
       const id = Date.now();
-      this.notifications.push({ id, message });
+      this.notifications.push({ id, message, type });
       setTimeout(() => {
         const idx = this.notifications.findIndex(n => n.id === id);
         if (idx !== -1) this.notifications.splice(idx, 1);
@@ -122,4 +122,32 @@ function subscribeToTaskOutput(taskId) {
 // Boot: init store once Alpine is ready
 document.addEventListener('alpine:initialized', () => {
   Alpine.store('agentqueue').init();
+});
+
+// ---- HTMX error handling ----
+// Fires when server returns 4xx / 5xx
+document.body.addEventListener('htmx:responseError', function (evt) {
+  let msg = 'Something went wrong.';
+  try {
+    const data = JSON.parse(evt.detail.xhr.responseText);
+    if (data.error) msg = data.error;
+  } catch (_) {}
+  Alpine.store('agentqueue').notify(msg, 'error');
+});
+
+// Fires when the request can't reach the server at all
+document.body.addEventListener('htmx:sendError', function () {
+  Alpine.store('agentqueue').notify('Network error — could not reach the server.', 'error');
+});
+
+// Fires via HX-Trigger: {"agentqueue:error": {"message": "..."}}
+document.body.addEventListener('agentqueue:error', function (evt) {
+  const msg = evt.detail?.message || 'An error occurred.';
+  Alpine.store('agentqueue').notify(msg, 'error');
+});
+
+// Fires via HX-Trigger: {"agentqueue:success": {"message": "..."}}
+document.body.addEventListener('agentqueue:success', function (evt) {
+  const msg = evt.detail?.message || 'Done.';
+  Alpine.store('agentqueue').notify(msg, 'success');
 });

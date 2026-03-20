@@ -18,15 +18,10 @@ function initKanban() {
       onEnd(evt) {
         const taskId = evt.item.dataset.taskId;
         const newStatus = evt.to.dataset.status;
+        const oldStatus = evt.from.dataset.status;
         const newOrder = evt.newIndex;
 
         if (!taskId || !newStatus) return;
-
-        const data = new FormData();
-        data.append('task_id', taskId);
-        data.append('new_status', newStatus);
-        data.append('new_order', newOrder);
-        data.append('csrfmiddlewaretoken', getCsrfToken());
 
         htmx.ajax('POST', '/tasks/reorder/', {
           values: {
@@ -36,6 +31,14 @@ function initKanban() {
             csrfmiddlewaretoken: getCsrfToken(),
           }
         });
+
+        // Dragged into In Progress from another column → ask to run now
+        if (newStatus === 'in_progress' && oldStatus !== 'in_progress') {
+          const title = evt.item.querySelector('p')?.textContent?.trim() || '';
+          window.dispatchEvent(new CustomEvent('kanban:trigger-confirm', {
+            detail: { taskId, taskTitle: title }
+          }));
+        }
       },
     });
   });
@@ -45,4 +48,12 @@ function getCsrfToken() {
   return document.querySelector('[name=csrfmiddlewaretoken]')?.value
     || document.cookie.match(/csrftoken=([^;]+)/)?.[1]
     || '';
+}
+
+function triggerTask(taskId) {
+  htmx.ajax('POST', `/tasks/${taskId}/trigger/`, {
+    target: `#task-card-${taskId}`,
+    swap: 'outerHTML',
+    values: { csrfmiddlewaretoken: getCsrfToken() },
+  });
 }
