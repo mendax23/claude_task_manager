@@ -86,6 +86,11 @@ class TaskRunner:
                 if chunk.is_final:
                     tokens_used = chunk.tokens_used
 
+            # Write completion marker to tmux output file
+            with open(output_file, "a") as f:
+                f.write(f"\n\n{'─' * 60}\n")
+                f.write(f"Done · {tokens_used:,} tokens used\n")
+
             # Save run results
             output = "".join(full_output)
             run.output_log = output
@@ -118,6 +123,12 @@ class TaskRunner:
 
         except Exception as e:
             logger.exception("Task %s failed: %s", task.pk, e)
+            try:
+                with open(output_file, "a") as f:
+                    f.write(f"\n\n{'─' * 60}\n")
+                    f.write(f"ERROR: {e}\n")
+            except OSError:
+                pass
             run.status = TaskStatus.FAILED
             run.error_log = str(e)
             run.finished_at = timezone.now()
