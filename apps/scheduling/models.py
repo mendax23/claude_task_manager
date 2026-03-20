@@ -23,6 +23,10 @@ class Schedule(TimeStampedModel):
         default=4,
         help_text="Max hours of continuous task running while idle",
     )
+    max_concurrent_tasks = models.PositiveIntegerField(
+        default=1,
+        help_text="Maximum number of tasks that can run simultaneously",
+    )
 
     # Time restrictions (JSON list of {start: 22, end: 8} hour ranges)
     allowed_hours = models.JSONField(

@@ -51,17 +51,24 @@ class SmartScheduler:
                     logger.info("Token budget exhausted (%.1f%%) — skipping", pct_used)
                     return None
 
-        # 4. Gate: already running?
-        if Task.objects.filter(status=TaskStatus.IN_PROGRESS).exists():
+        # 4. Gate: concurrency limit
+        in_progress = Task.objects.filter(status=TaskStatus.IN_PROGRESS).count()
+        if in_progress >= schedule.max_concurrent_tasks:
             return None
 
-        # 5. Idle check
-        detector = IdleDetector()
-        short_idle = detector.is_short_idle(schedule.idle_threshold_minutes)
-        long_idle = detector.is_long_idle(schedule.away_threshold_hours)
-
-        if not (short_idle or long_idle):
-            return None
+        # 5. Idle check (skip for evergreen tasks with ignore_idle + past next_run_at)
+        skip_idle = (
+            candidate.ignore_idle
+            and candidate.task_type == "evergreen"
+            and candidate.next_run_at is not None
+            and candidate.next_run_at <= timezone.now()
+        )
+        if not skip_idle:
+            detector = IdleDetector()
+            short_idle = detector.is_short_idle(schedule.idle_threshold_minutes)
+            long_idle = detector.is_long_idle(schedule.away_threshold_hours)
+            if not (short_idle or long_idle):
+                return None
 
         # 6. Token spreading (skip if drain mode)
         if not drain_mode and llm_config and schedule.enable_token_spreading:

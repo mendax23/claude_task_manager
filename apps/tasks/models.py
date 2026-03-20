@@ -83,6 +83,10 @@ class Task(TimeStampedModel):
         help_text="Cron expression for evergreen tasks, e.g. '0 9 * * 1'",
     )
     next_run_at = models.DateTimeField(null=True, blank=True)
+    ignore_idle = models.BooleanField(
+        default=False,
+        help_text="Run even when user is active (for scheduled evergreen tasks)",
+    )
 
     # Chain support
     chain = models.ForeignKey(

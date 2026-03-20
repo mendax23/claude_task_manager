@@ -102,6 +102,26 @@ class TmuxManager:
         except Exception:
             return False
 
+    def check_exit_marker(self, session_window: str, marker_prefix: str = "___AQ_EXIT_") -> int | None:
+        """
+        Scan the tmux pane for an exit marker like '___AQ_EXIT_0___'.
+        Returns the exit code if found, or None if not yet present.
+        """
+        try:
+            output = self.capture_output(session_window, lines=30)
+            for line in output.split("\n"):
+                line = line.strip()
+                if line.startswith(marker_prefix) and line.endswith("___"):
+                    code_str = line[len(marker_prefix):-3]
+                    try:
+                        return int(code_str)
+                    except ValueError:
+                        return -1
+            return None
+        except Exception as e:
+            logger.warning("check_exit_marker failed: %s", e)
+            return None
+
     def list_active_sessions(self) -> list[dict]:
         """Lists all agentqueue tmux windows."""
         try:

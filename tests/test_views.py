@@ -413,6 +413,7 @@ def test_schedule_edit_post(client, schedule):
         "idle_threshold_minutes": 30,
         "away_threshold_hours": 2,
         "max_run_window_hours": 6,
+        "max_concurrent_tasks": 1,
         "is_active": "on",
         "allowed_days": 127,
     })

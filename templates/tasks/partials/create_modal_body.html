@@ -134,6 +134,24 @@
     <p class="text-[11px] text-gray-600 mt-1.5">Format: <span class="font-mono">minute hour day month weekday</span> &mdash; e.g. <span class="font-mono text-gray-500">*/30 * * * *</span> (every 30 min), <span class="font-mono text-gray-500">0 */4 * * *</span> (every 4h)</p>
   </div>
 
+  {# ── Ignore idle (evergreen only) ── #}
+  <div x-show="taskType === 'evergreen'" x-transition>
+    <div class="flex items-center gap-3">
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" name="ignore_idle" class="sr-only peer"
+               {% if form.ignore_idle.value %}checked{% endif %}>
+        <div class="w-9 h-5 bg-gray-700 peer-focus:ring-2 peer-focus:ring-indigo-500/40 rounded-full peer
+                    peer-checked:bg-green-600 transition-colors after:content-[''] after:absolute after:top-0.5
+                    after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                    peer-checked:after:translate-x-full"></div>
+      </label>
+      <div>
+        <span class="text-sm text-gray-300">Run regardless of idle</span>
+        <p class="text-[10px] text-gray-600">Launch at the scheduled time even if you're actively working</p>
+      </div>
+    </div>
+  </div>
+
   {# ── Advanced toggle ── #}
   <div class="border-t border-gray-800 pt-4">
     <button type="button" @click="showAdvanced = !showAdvanced"

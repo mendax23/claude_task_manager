@@ -7,7 +7,7 @@ class ScheduleForm(forms.ModelForm):
         model = Schedule
         fields = [
             "is_active", "idle_threshold_minutes", "away_threshold_hours",
-            "max_run_window_hours", "enable_token_spreading",
+            "max_run_window_hours", "max_concurrent_tasks", "enable_token_spreading",
             "allowed_days", "allowed_hours",
         ]
 
