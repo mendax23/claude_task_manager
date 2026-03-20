@@ -64,4 +64,5 @@ def budget_bar(request):
     return render(request, "components/token_budget_bar.html", {
         "budget": budget,
         "is_idle": is_idle,
+        "schedule": Schedule.objects.first(),
     })

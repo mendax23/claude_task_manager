@@ -138,12 +138,69 @@ def task_cancel(request, pk):
     return response
 
 
+def task_edit(request, pk):
+    """Inline edit endpoint — GET returns edit form, POST saves and returns updated panel."""
+    from apps.projects.models import Project
+    from apps.providers.models import LLMConfig
+
+    task = get_object_or_404(Task.objects.select_related("project", "llm_config"), pk=pk)
+
+    if request.method == "POST":
+        form = TaskForm(request.POST, instance=task)
+        if form.is_valid():
+            form.save()
+            # Reload the detail panel after save
+            runs = task.runs.order_by("-started_at")[:8]
+            return render(request, "tasks/partials/detail_panel.html", {"task": task, "runs": runs})
+        ctx = {
+            "task": task,
+            "form": form,
+            "projects": Project.objects.all(),
+            "llm_configs": LLMConfig.objects.all(),
+        }
+        return render(request, "tasks/partials/edit_form.html", ctx)
+
+    form = TaskForm(instance=task)
+    ctx = {
+        "task": task,
+        "form": form,
+        "projects": Project.objects.all(),
+        "llm_configs": LLMConfig.objects.all(),
+    }
+    return render(request, "tasks/partials/edit_form.html", ctx)
+
+
 def tmux_attach_command(request, pk):
     task = get_object_or_404(Task, pk=pk)
     prefix = settings.AGENTQUEUE.get("TMUX_SESSION_PREFIX", "agentqueue")
     session = f"{prefix}:task-{task.pk}"
     command = f"tmux attach-session -t {session}"
     return JsonResponse({"command": command, "session": session})
+
+
+@require_POST
+def task_duplicate(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+    new_task = Task.objects.create(
+        project=task.project,
+        llm_config=task.llm_config,
+        title=f"{task.title} (copy)",
+        prompt=task.prompt,
+        task_type=task.task_type,
+        status=TaskStatus.BACKLOG,
+        priority=task.priority,
+        recurrence_rule=task.recurrence_rule,
+        estimated_tokens=task.estimated_tokens,
+        tags=list(task.tags) if task.tags else [],
+    )
+    return redirect("tasks:detail", pk=new_task.pk)
+
+
+@require_POST
+def task_delete(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+    task.delete()
+    return redirect("dashboard:index")
 
 
 @require_POST

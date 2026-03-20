@@ -1,8 +1,28 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block title %}Tasks — AgentQueue{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-8">
+<div x-data="{
+  search: new URLSearchParams(location.search).get('q') || '',
+  statusFilter: new URLSearchParams(location.search).get('status') || 'all',
+  get filteredTasks() {
+    return Array.from(document.querySelectorAll('[data-task-row]')).forEach(el => {
+      const title = el.dataset.title.toLowerCase();
+      const status = el.dataset.status;
+      const project = (el.dataset.project || '').toLowerCase();
+      const tags = (el.dataset.tags || '').toLowerCase();
+      const matchSearch = !this.search || title.includes(this.search.toLowerCase())
+                          || project.includes(this.search.toLowerCase())
+                          || tags.includes(this.search.toLowerCase());
+      const matchStatus = this.statusFilter === 'all' || status === this.statusFilter;
+      el.style.display = (matchSearch && matchStatus) ? '' : 'none';
+    });
+  }
+}"
+x-effect="filteredTasks">
+
+<div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-2xl font-bold text-white">Tasks</h1>
     <p class="text-sm text-gray-500 mt-0.5">{{ tasks|length }} task{{ tasks|length|pluralize }} total</p>
@@ -17,21 +37,65 @@
   </a>
 </div>
 
+{# ── Search & Filter Bar ── #}
+<div class="flex items-center gap-3 mb-5">
+  <div class="relative flex-1 max-w-md">
+    <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <input type="text" x-model="search"
+           placeholder="Search tasks, projects, tags..."
+           class="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white
+                  placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-colors">
+    <button x-show="search" @click="search = ''" x-cloak
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
+    <template x-for="[val, label] in [
+      ['all', 'All'],
+      ['backlog', 'Backlog'],
+      ['scheduled', 'Scheduled'],
+      ['in_progress', 'Running'],
+      ['done', 'Done'],
+      ['failed', 'Failed'],
+    ]" :key="val">
+      <button @click="statusFilter = val"
+              :class="statusFilter === val
+                ? 'bg-gray-800 text-white border-gray-700'
+                : 'text-gray-500 hover:text-gray-300 border-transparent'"
+              class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-all"
+              x-text="label">
+      </button>
+    </template>
+  </div>
+</div>
+
 {% if tasks %}
 <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
   {% for task in tasks %}
   <div class="flex items-center gap-4 px-5 py-4
               {% if not forloop.last %}border-b border-gray-800{% endif %}
-              hover:bg-gray-800/30 transition-colors group">
+              hover:bg-gray-800/30 transition-colors group cursor-pointer"
+       data-task-row
+       data-title="{{ task.title }}"
+       data-status="{{ task.status }}"
+       data-project="{{ task.project.name }}"
+       data-tags="{{ task.tags|join:',' }}"
+       onclick="window.location='{% url 'tasks:detail' task.pk %}'">
 
-    <!-- Priority bar -->
+    {# Priority bar #}
     <div class="w-1 h-9 rounded-full shrink-0
       {% if task.priority == 4 %}bg-red-500
       {% elif task.priority == 3 %}bg-amber-500
       {% elif task.priority == 2 %}bg-blue-500
       {% else %}bg-gray-700{% endif %}"></div>
 
-    <!-- Status dot -->
+    {# Status dot #}
     <div class="w-2 h-2 rounded-full shrink-0
       {% if task.status == 'in_progress' %}bg-amber-400 animate-pulse
       {% elif task.status == 'done' %}bg-green-500
@@ -39,38 +103,57 @@
       {% elif task.status == 'scheduled' %}bg-blue-400
       {% else %}bg-gray-600{% endif %}"></div>
 
-    <!-- Title -->
+    {# Title #}
     <span class="text-sm font-medium text-white flex-1 truncate" title="{{ task.title }}">{{ task.title }}</span>
 
-    <!-- Project chip -->
+    {# Project chip #}
     {% if task.project %}
     <span class="text-xs text-indigo-300 bg-indigo-900/30 border border-indigo-800/30 px-2.5 py-1 rounded-lg hidden sm:inline">
       {{ task.project.name }}
     </span>
     {% endif %}
 
-    <!-- Type badge -->
-    {% if task.task_type == 'evergreen' %}
-    <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-2 py-0.5 rounded-lg">↺</span>
-    {% elif task.task_type == 'chained' %}
-    <span class="text-xs text-purple-400 bg-purple-900/20 border border-purple-800/30 px-2 py-0.5 rounded-lg">⛓</span>
+    {# Tags #}
+    {% if task.tags %}
+    <div class="hidden lg:flex gap-1">
+      {% for tag in task.tags|slice:":2" %}
+      <span class="text-[10px] text-gray-600 bg-gray-800/60 px-1.5 py-px rounded">#{{ tag }}</span>
+      {% endfor %}
+    </div>
     {% endif %}
 
-    <!-- Status badge -->
-    <span class="text-xs px-2.5 py-1 rounded-lg font-medium
+    {# Type badge #}
+    {% if task.task_type == 'evergreen' %}
+    <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-2 py-0.5 rounded-lg shrink-0" title="Evergreen">
+      <svg class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+    </span>
+    {% elif task.task_type == 'chained' %}
+    <span class="text-xs text-purple-400 bg-purple-900/20 border border-purple-800/30 px-2 py-0.5 rounded-lg shrink-0" title="Chained">
+      <svg class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+      </svg>
+    </span>
+    {% endif %}
+
+    {# Status badge #}
+    <span class="text-xs px-2.5 py-1 rounded-lg font-medium shrink-0
       {% if task.status == 'in_progress' %}bg-amber-900/30 border border-amber-700/30 text-amber-400
       {% elif task.status == 'done' %}bg-green-900/30 border border-green-700/30 text-green-400
       {% elif task.status == 'failed' %}bg-red-900/30 border border-red-700/30 text-red-400
       {% elif task.status == 'scheduled' %}bg-blue-900/30 border border-blue-700/30 text-blue-400
+      {% elif task.status == 'cancelled' %}bg-gray-800 border border-gray-700 text-gray-500
       {% else %}bg-gray-800 border border-gray-700 text-gray-500{% endif %}">
-      {{ task.status }}
+      {{ task.get_status_display }}
     </span>
 
-    <a href="{% url 'tasks:detail' task.pk %}"
-       class="text-xs text-gray-600 hover:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-800
-              transition-colors opacity-0 group-hover:opacity-100">
-      View →
-    </a>
+    {# Age #}
+    <span class="text-xs text-gray-600 shrink-0 hidden sm:inline tabular-nums">{{ task.created_at|naturaltime }}</span>
+
+    <svg class="w-4 h-4 text-gray-700 group-hover:text-gray-400 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+    </svg>
   </div>
   {% endfor %}
 </div>
@@ -84,9 +167,10 @@
   </div>
   <p class="text-gray-500 mb-2">No tasks yet</p>
   <a href="{% url 'dashboard:index' %}" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
-    Go to dashboard to create one →
+    Go to dashboard to create one
   </a>
 </div>
 {% endif %}
 
+</div>
 {% endblock %}

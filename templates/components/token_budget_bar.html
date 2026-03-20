@@ -58,6 +58,24 @@
     </span>
   </div>
 
+  {% if schedule %}
+  <button hx-post="{% url 'scheduling:toggle' %}"
+          hx-swap="none"
+          title="{% if schedule.is_active %}Pause auto-scheduler{% else %}Resume auto-scheduler{% endif %}"
+          class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors
+                 {% if schedule.is_active %}text-green-500/70 hover:text-green-400 hover:bg-green-900/20
+                 {% else %}text-gray-600 hover:text-gray-400 hover:bg-gray-800{% endif %}">
+    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      {% if schedule.is_active %}
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      {% else %}
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      {% endif %}
+    </svg>
+    {% if schedule.is_active %}Auto{% else %}Paused{% endif %}
+  </button>
+  {% endif %}
+
   <div class="flex items-center gap-1.5">
     <div class="w-1.5 h-1.5 rounded-full"
          :class="$store.agentqueue.wsConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'"></div>

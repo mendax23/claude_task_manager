@@ -151,3 +151,34 @@ document.body.addEventListener('agentqueue:success', function (evt) {
   const msg = evt.detail?.message || 'Done.';
   Alpine.store('agentqueue').notify(msg, 'success');
 });
+
+// ---- Keyboard shortcuts ----
+document.addEventListener('keydown', function (e) {
+  // Don't trigger shortcuts when typing in form fields
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
+
+  // n = New task (open modal on dashboard, navigate to create elsewhere)
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const modalBtn = document.querySelector('[\\@click="modalOpen = true"]');
+    if (modalBtn) { modalBtn.click(); e.preventDefault(); }
+  }
+
+  // / = Focus search (on task list page)
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+    const searchInput = document.querySelector('input[x-model="search"]');
+    if (searchInput) { searchInput.focus(); e.preventDefault(); }
+  }
+
+  // d = Dashboard
+  if (e.key === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (location.pathname !== '/') { window.location = '/'; e.preventDefault(); }
+  }
+
+  // t = Tasks list
+  if (e.key === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (!location.pathname.startsWith('/tasks')) { window.location = '/tasks/'; e.preventDefault(); }
+  }
+
+  // ? = Keyboard shortcuts panel is handled by Alpine in base.html
+});

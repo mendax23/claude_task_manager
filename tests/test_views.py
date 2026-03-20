@@ -269,3 +269,34 @@ def test_budget_bar_returns_200(client):
 def test_provider_list_returns_200(client, llm_config):
     response = client.get("/providers/")
     assert response.status_code == 200
+
+
+# ── Task Duplicate ──
+
+
+@pytest.mark.django_db
+def test_task_duplicate(client, task):
+    response = client.post(f"/tasks/{task.pk}/duplicate/")
+    assert response.status_code == 302
+    new_task = Task.objects.filter(title__contains="(copy)").first()
+    assert new_task is not None
+    assert new_task.prompt == task.prompt
+    assert new_task.status == TaskStatus.BACKLOG
+    assert new_task.pk != task.pk
+
+
+# ── Task Delete ──
+
+
+@pytest.mark.django_db
+def test_task_delete(client, task):
+    pk = task.pk
+    response = client.post(f"/tasks/{pk}/delete/")
+    assert response.status_code == 302
+    assert not Task.objects.filter(pk=pk).exists()
+
+
+@pytest.mark.django_db
+def test_task_delete_requires_post(client, task):
+    response = client.get(f"/tasks/{task.pk}/delete/")
+    assert response.status_code == 405
