@@ -1,5 +1,9 @@
 {% csrf_token %}
 
+{# Ctrl+Enter to submit #}
+<div x-data @keydown.ctrl.enter.window="if (document.getElementById('create-task-form')) document.getElementById('create-task-form').requestSubmit()"
+     @keydown.meta.enter.window="if (document.getElementById('create-task-form')) document.getElementById('create-task-form').requestSubmit()"></div>
+
 {# ── Errors banner ── #}
 {% if form.non_field_errors %}
 <div class="mb-5 px-4 py-3 bg-red-900/30 border border-red-700/50 rounded-xl text-red-400 text-sm">
@@ -89,13 +93,20 @@
   </div>
 
   {# ── Prompt ── #}
-  <div>
-    <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Prompt</label>
-    <textarea name="prompt" rows="5"
+  <div x-data="{ charCount: 0 }" x-init="charCount = $refs.prompt?.value?.length || 0">
+    <div class="flex items-center justify-between mb-2">
+      <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Prompt</label>
+      <span class="text-[10px] tabular-nums"
+            :class="charCount > 45000 ? 'text-red-400' : charCount > 30000 ? 'text-yellow-500' : 'text-gray-600'"
+            x-text="`${charCount.toLocaleString()} / 50,000`"></span>
+    </div>
+    <textarea name="prompt" rows="5" x-ref="prompt"
+              @input="charCount = $el.value.length; $el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'"
               placeholder="Describe exactly what the AI should do. Be specific — include file paths, expected output format, constraints..."
               class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white
                      placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1
-                     focus:ring-indigo-500/50 transition-colors resize-none leading-relaxed">{{ form.prompt.value|default:'' }}</textarea>
+                     focus:ring-indigo-500/50 transition-colors resize-none leading-relaxed"
+              style="min-height: 120px; max-height: 400px;">{{ form.prompt.value|default:'' }}</textarea>
     {% if form.prompt.errors %}<p class="text-red-400 text-xs mt-1">{{ form.prompt.errors|join:", " }}</p>{% endif %}
   </div>
 
@@ -120,6 +131,7 @@
                   font-mono placeholder-gray-600 focus:outline-none focus:border-indigo-500
                   focus:ring-1 focus:ring-indigo-500/50 transition-colors">
     {% if form.recurrence_rule.errors %}<p class="text-red-400 text-xs mt-1">{{ form.recurrence_rule.errors|join:", " }}</p>{% endif %}
+    <p class="text-[11px] text-gray-600 mt-1.5">Format: <span class="font-mono">minute hour day month weekday</span> &mdash; e.g. <span class="font-mono text-gray-500">*/30 * * * *</span> (every 30 min), <span class="font-mono text-gray-500">0 */4 * * *</span> (every 4h)</p>
   </div>
 
   {# ── Advanced toggle ── #}

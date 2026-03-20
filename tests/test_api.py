@@ -112,3 +112,44 @@ def test_api_run_is_read_only(api_client, task):
     assert api_client.post(f"/api/runs/{run.pk}/", data={}, content_type="application/json").status_code == 405
     assert api_client.put(f"/api/runs/{run.pk}/", data={}, content_type="application/json").status_code == 405
     assert api_client.delete(f"/api/runs/{run.pk}/").status_code == 405
+
+
+# ── Poll API ──
+
+
+@pytest.mark.django_db
+def test_api_poll_returns_active_tasks(api_client, project, llm_config):
+    """Poll endpoint returns in_progress and scheduled tasks."""
+    t1 = Task.objects.create(
+        project=project, title="Running", prompt="p",
+        task_type=TaskType.ONE_SHOT, status=TaskStatus.IN_PROGRESS,
+    )
+    t2 = Task.objects.create(
+        project=project, title="Queued", prompt="p",
+        task_type=TaskType.ONE_SHOT, status=TaskStatus.SCHEDULED,
+    )
+    Task.objects.create(
+        project=project, title="Done", prompt="p",
+        task_type=TaskType.ONE_SHOT, status=TaskStatus.DONE,
+    )
+    response = api_client.get("/api/poll/")
+    assert response.status_code == 200
+    data = response.json()
+    tasks = data["tasks"]
+    assert str(t1.pk) in tasks
+    assert str(t2.pk) in tasks
+    assert tasks[str(t1.pk)]["status"] == "in_progress"
+    assert tasks[str(t2.pk)]["status"] == "scheduled"
+    # Done task should NOT appear
+    done_pks = [
+        pk for pk, info in tasks.items() if info["status"] == "done"
+    ]
+    assert len(done_pks) == 0
+
+
+@pytest.mark.django_db
+def test_api_poll_empty(api_client):
+    """Poll returns empty dict when no active tasks."""
+    response = api_client.get("/api/poll/")
+    assert response.status_code == 200
+    assert response.json() == {"tasks": {}}

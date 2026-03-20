@@ -24,16 +24,20 @@ class DashboardConsumer(AsyncWebsocketConsumer):
     # --- Event handlers (called by channel layer group_send) ---
 
     async def task_update(self, event):
-        await self.send(text_data=json.dumps({"type": "task_update", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(text_data=json.dumps({"type": "task_update", **payload}))
 
     async def budget_update(self, event):
-        await self.send(text_data=json.dumps({"type": "budget_update", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(text_data=json.dumps({"type": "budget_update", **payload}))
 
     async def idle_update(self, event):
-        await self.send(text_data=json.dumps({"type": "idle_update", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(text_data=json.dumps({"type": "idle_update", **payload}))
 
     async def notification(self, event):
-        await self.send(text_data=json.dumps({"type": "notification", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(text_data=json.dumps({"type": "notification", **payload}))
 
 
 class TaskOutputConsumer(AsyncWebsocketConsumer):
@@ -55,7 +59,9 @@ class TaskOutputConsumer(AsyncWebsocketConsumer):
         pass
 
     async def output_chunk(self, event):
-        await self.send(text_data=json.dumps({"type": "output_chunk", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(text_data=json.dumps({"type": "output_chunk", **payload}))
 
     async def task_complete(self, event):
-        await self.send(text_data=json.dumps({"type": "task_complete", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(text_data=json.dumps({"type": "task_complete", **payload}))

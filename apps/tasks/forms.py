@@ -25,6 +25,22 @@ class TaskForm(forms.ModelForm):
         if self.instance and self.instance.pk and self.instance.tags:
             self.fields["tags_input"].initial = ", ".join(self.instance.tags)
 
+    def clean_recurrence_rule(self):
+        rule = self.cleaned_data.get("recurrence_rule", "").strip()
+        if rule:
+            try:
+                from croniter import croniter
+                croniter(rule)
+            except (ValueError, KeyError):
+                raise forms.ValidationError("Invalid cron expression. Example: 0 9 * * 1 (Mondays at 9am)")
+        return rule
+
+    def clean_estimated_tokens(self):
+        val = self.cleaned_data.get("estimated_tokens")
+        if val is not None and val < 0:
+            raise forms.ValidationError("Estimated tokens cannot be negative.")
+        return val
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         raw = self.cleaned_data.get("tags_input", "")

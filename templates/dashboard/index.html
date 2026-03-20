@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}Dashboard — AgentQueue{% endblock %}
 
@@ -7,51 +8,241 @@
      @keydown.escape.window="modalOpen = false"
      @keydown.n.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { modalOpen = true; $event.preventDefault(); }"
      @keydown.slash.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { $el.querySelector('#task-search').focus(); $event.preventDefault(); }"
-     x-effect="filterCards(search)">
+     x-effect="filterCards(search)"
+     x-init="$watch('modalOpen', v => { if(v) { this._prevFocus = document.activeElement; setTimeout(() => document.querySelector('#create-modal-fields input[name=title]')?.focus(), 120); } else { $nextTick(() => this._prevFocus?.focus()); } })">
 
-<div class="flex items-center justify-between mb-5">
+{# Desktop notification prompt #}
+<div x-data="{ show: 'Notification' in window && Notification.permission === 'default', dismissed: false }"
+     x-show="show && !dismissed" x-cloak x-transition
+     class="flex items-center gap-3 bg-indigo-950/30 border border-indigo-800/30 rounded-xl px-4 py-2.5 mb-4">
+  <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+  </svg>
+  <span class="text-xs text-indigo-300 flex-1">Enable desktop notifications to get alerted when tasks complete.</span>
+  <button @click="Notification.requestPermission().then(p => { show = p === 'default'; if(p === 'granted') Alpine.store('agentqueue').notify('Notifications enabled!', 'success'); })"
+          class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg transition-colors font-medium shrink-0">
+    Enable
+  </button>
+  <button @click="dismissed = true" aria-label="Dismiss" class="text-gray-600 hover:text-gray-400 transition-colors shrink-0">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>
+</div>
+
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
   <div>
     <h1 class="text-2xl font-bold text-white">Dashboard</h1>
     <p class="text-base text-gray-500 mt-1">{{ total_tasks }} task{{ total_tasks|pluralize }} tracked</p>
   </div>
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
     {# Search #}
-    <div class="relative">
+    <div class="relative order-last sm:order-none w-full sm:w-auto">
       <svg class="w-3.5 h-3.5 text-gray-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
       <input id="task-search" type="text" x-model="search"
              placeholder="Filter tasks…"
              @keydown.escape="search = ''; $el.blur()"
-             class="w-48 bg-gray-800/60 border border-gray-700/60 rounded-xl pl-8 pr-3 py-2 text-xs text-gray-300
-                    placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:w-64 transition-all duration-200">
-      <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-700 font-mono pointer-events-none"
+             class="w-full sm:w-48 bg-gray-800/60 border border-gray-700/60 rounded-xl pl-8 pr-3 py-2 text-xs text-gray-300
+                    placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 sm:focus:w-64 transition-all duration-200">
+      <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-700 font-mono pointer-events-none hidden sm:inline"
             x-show="!search">/</span>
     </div>
 
+    {% if scheduled_count %}
+    <div class="flex items-center gap-1" x-data="{ confirm: false }">
+      <button x-show="!confirm" @click="confirm = true"
+              title="Run all {{ scheduled_count }} scheduled task{{ scheduled_count|pluralize }}"
+              class="text-xs sm:text-sm bg-blue-900/20 hover:bg-blue-900/40 border border-blue-700/40 text-blue-400
+                     px-3 sm:px-4 py-2 rounded-xl transition-colors font-medium flex items-center gap-2">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+        </svg>
+        <span class="hidden sm:inline">Run {{ scheduled_count }} scheduled</span>
+        <span class="sm:hidden">Run {{ scheduled_count }}</span>
+      </button>
+      <template x-if="confirm">
+        <div class="flex items-center gap-1.5 bg-blue-950/40 border border-blue-800/40 rounded-xl px-3 py-1.5" @click.outside="confirm = false">
+          <span class="text-xs text-blue-300">Run {{ scheduled_count }} task{{ scheduled_count|pluralize }}?</span>
+          <button hx-post="{% url 'tasks:run_scheduled' %}" hx-swap="none" hx-indicator="this"
+                  class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg font-medium transition-colors flex items-center gap-1
+                         [&.htmx-request]:opacity-70 [&.htmx-request]:pointer-events-none">
+            <svg class="w-3 h-3 animate-spin hidden [.htmx-request_&]:block" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            Yes
+          </button>
+          <button @click="confirm = false" class="text-xs text-gray-500 hover:text-gray-300 px-1.5 py-1 rounded hover:bg-gray-800 transition-colors">No</button>
+        </div>
+      </template>
+    </div>
+    {% endif %}
     {% if failed_count %}
-    <a href="{% url 'tasks:list' %}?status=failed"
-       class="text-sm bg-red-900/30 border border-red-700/50 text-red-400 px-4 py-2 rounded-xl hover:bg-red-900/50 transition-colors font-medium">
-      {{ failed_count }} failed
-    </a>
+    <div class="flex items-center gap-1.5" x-data>
+      <a href="{% url 'tasks:list' %}?status=failed"
+         class="text-xs sm:text-sm bg-red-900/30 border border-red-700/50 text-red-400 px-3 sm:px-4 py-2 rounded-xl hover:bg-red-900/50 transition-colors font-medium">
+        {{ failed_count }} failed
+      </a>
+      <button hx-post="{% url 'tasks:retry_failed' %}" hx-swap="none"
+              title="Re-queue all {{ failed_count }} failed task{{ failed_count|pluralize }}"
+              class="text-xs bg-red-900/20 hover:bg-red-900/40 border border-red-700/40 text-red-400
+                     px-2.5 py-2 rounded-xl transition-colors flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Retry
+      </button>
+    </div>
     {% endif %}
     <a href="{% url 'projects:list' %}"
-       class="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-5 py-2.5 rounded-xl transition-colors">
+       class="hidden sm:inline-block text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-5 py-2.5 rounded-xl transition-colors">
       Projects
     </a>
     <button @click="modalOpen = true"
-            class="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl transition-colors font-semibold flex items-center gap-2 shadow-lg shadow-indigo-900/40">
+            class="text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-colors font-semibold flex items-center gap-2 shadow-lg shadow-indigo-900/40">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-      New Task
+      <span class="hidden sm:inline">New Task</span>
+      <span class="sm:hidden">New</span>
       <span class="text-indigo-300/60 text-xs font-mono ml-1 hidden sm:inline">N</span>
     </button>
   </div>
 </div>
 
+{% if total_tasks == 0 %}
+{# ── First-Run Onboarding ── #}
+<div class="bg-gradient-to-br from-indigo-950/40 via-gray-900 to-gray-900 border border-indigo-800/30 rounded-2xl p-8 mb-8">
+  <div class="max-w-lg">
+    <h2 class="text-lg font-bold text-white mb-2">Welcome to AgentQueue</h2>
+    <p class="text-sm text-gray-400 leading-relaxed mb-6">
+      Queue AI coding tasks that run when you're away. Create your first task, connect a project,
+      and let the scheduler handle the rest.
+    </p>
+    <div class="space-y-3">
+      <div class="flex items-center gap-3 text-sm">
+        <div class="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center shrink-0">
+          <span class="text-indigo-400 text-xs font-bold">1</span>
+        </div>
+        <span class="text-gray-300">
+          {% if project_count == 0 %}
+          <a href="{% url 'projects:create' %}" class="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Connect a project</a> — link a git repo
+          {% else %}
+          <span class="text-green-400">Project connected</span> — <span class="text-gray-500">{{ project_count }} repo{{ project_count|pluralize }}</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <div class="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center shrink-0">
+          <span class="text-indigo-400 text-xs font-bold">2</span>
+        </div>
+        <span class="text-gray-300">
+          <button @click="modalOpen = true" class="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Create a task</button> — describe what the AI should do
+        </span>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <div class="w-6 h-6 rounded-full bg-gray-800 border border-gray-700/50 flex items-center justify-center shrink-0">
+          <span class="text-gray-500 text-xs font-bold">3</span>
+        </div>
+        <span class="text-gray-500">Run it manually or let the scheduler pick it up when idle</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Quick Stats ── #}
+{% if total_tasks > 0 %}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+  <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-amber-900/25 border border-amber-800/30 flex items-center justify-center shrink-0">
+      <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    </div>
+    <div>
+      <p class="text-lg font-bold text-white tabular-nums" x-text="Object.values($store.agentqueue.activeTasks).filter(t=>t.status==='in_progress').length || '{{ running_count }}'">{{ running_count }}</p>
+      <p class="text-[10px] text-gray-600 uppercase tracking-wider">Running</p>
+    </div>
+  </div>
+  <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-blue-900/25 border border-blue-800/30 flex items-center justify-center shrink-0">
+      <svg class="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    </div>
+    <div>
+      <p class="text-lg font-bold text-white tabular-nums">{{ scheduled_count }}</p>
+      <p class="text-[10px] text-gray-600 uppercase tracking-wider">Queued</p>
+    </div>
+  </div>
+  <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-green-900/25 border border-green-800/30 flex items-center justify-center shrink-0">
+      <svg class="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <div>
+      <p class="text-lg font-bold text-white tabular-nums">{{ done_count }}</p>
+      <p class="text-[10px] text-gray-600 uppercase tracking-wider">Completed</p>
+    </div>
+  </div>
+  <div class="bg-gray-900/60 border border-gray-800/60 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-indigo-900/25 border border-indigo-800/30 flex items-center justify-center shrink-0">
+      <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+    </div>
+    <div>
+      <p class="text-lg font-bold text-white tabular-nums">{{ project_count }}</p>
+      <p class="text-[10px] text-gray-600 uppercase tracking-wider">Projects</p>
+    </div>
+  </div>
+</div>
+
+{# ── Machine Status ── #}
+<div class="flex items-center gap-2 mb-4 px-1">
+  <div class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors"
+       :class="$store.agentqueue.isIdle
+         ? 'bg-emerald-900/15 border-emerald-900/30 text-emerald-400'
+         : 'bg-gray-900/40 border-gray-800/40 text-gray-500'">
+    <div class="w-1.5 h-1.5 rounded-full" :class="$store.agentqueue.isIdle ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'"></div>
+    <span x-text="$store.agentqueue.isIdle ? 'Idle — scheduler active' : 'User active'"></span>
+  </div>
+</div>
+
+{# ── Weekly Analytics Strip ── #}
+{% if week_done or week_tokens %}
+<div class="flex items-center gap-2 mb-5 px-1 flex-wrap">
+  <span class="text-[10px] text-gray-700 uppercase tracking-wider font-semibold mr-1">This week</span>
+  {% if week_done %}
+  <span class="inline-flex items-center gap-1 text-xs text-green-400 bg-green-900/15 border border-green-900/30 px-2.5 py-1 rounded-full">
+    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+    {{ week_done }} done
+  </span>
+  {% endif %}
+  {% if week_failed %}
+  <span class="inline-flex items-center gap-1 text-xs text-red-400 bg-red-900/15 border border-red-900/30 px-2.5 py-1 rounded-full">
+    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    {{ week_failed }} failed
+  </span>
+  {% endif %}
+  {% if success_rate is not None %}
+  <span class="inline-flex items-center gap-1 text-xs {% if success_rate >= 80 %}text-emerald-400{% elif success_rate >= 50 %}text-yellow-400{% else %}text-red-400{% endif %} bg-gray-900/60 border border-gray-800/60 px-2.5 py-1 rounded-full">
+    {{ success_rate }}% success
+  </span>
+  {% endif %}
+  {% if week_tokens %}
+  <span class="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-900/40 border border-gray-800/40 px-2.5 py-1 rounded-full">
+    <svg class="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    {{ week_tokens|intcomma }} tokens
+  </span>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
 <!-- Kanban Board -->
-<div class="grid grid-cols-4 gap-5" id="kanban-board">
+<div class="relative">
+  {# Mobile swipe hint — only shown on first visit #}
+  <div class="sm:hidden absolute -top-6 right-0 flex items-center gap-1 text-[10px] text-gray-600 animate-pulse z-10"
+       x-data="{ show: !localStorage.getItem('aq-swipe-hint') }"
+       x-show="show" x-cloak
+       x-init="setTimeout(() => { show = false; localStorage.setItem('aq-swipe-hint', '1'); }, 4000)">
+    <span>Swipe for more</span>
+    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+  </div>
+</div>
+<div class="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none lg:grid-cols-4 sm:gap-5" id="kanban-board">
   {% for column in columns %}
-  <div class="flex flex-col">
+  <div class="flex flex-col group/col min-w-[280px] snap-start sm:min-w-0">
 
     <!-- Column Header -->
     <div class="flex items-center justify-between mb-3 px-1">
@@ -85,13 +276,37 @@
         </h2>
       </div>
 
-      <span class="text-xs font-bold tabular-nums px-2.5 py-0.5 rounded-full
-        {% if column.key == 'in_progress' %}bg-amber-900/30 text-amber-400 border border-amber-700/30
-        {% elif column.key == 'scheduled' %}bg-blue-900/20 text-blue-400 border border-blue-800/30
-        {% elif column.key == 'done' %}bg-green-900/20 text-green-400 border border-green-800/30
-        {% else %}bg-gray-800 text-gray-500 border border-gray-700/40{% endif %}">
-        {{ column.tasks|length }}
-      </span>
+      <div class="flex items-center gap-2">
+        {% if column.key == 'done' and column.tasks %}
+        <div x-data="{ cc: false }" class="flex sm:hidden sm:group-hover/col:flex items-center gap-1">
+          <template x-if="!cc">
+            <button @click="cc = true"
+                    class="text-[10px] text-gray-600 hover:text-green-400 transition-colors"
+                    title="Archive all completed tasks">
+              Clear
+            </button>
+          </template>
+          <template x-if="cc">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] text-gray-500">Archive all?</span>
+              <button hx-post="{% url 'tasks:clear_done' %}" hx-swap="none"
+                      @click="cc = false"
+                      class="text-[10px] text-green-500 hover:text-green-300 font-semibold transition-colors">Yes</button>
+              <button @click="cc = false"
+                      class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">No</button>
+            </div>
+          </template>
+        </div>
+        {% endif %}
+        <span class="text-xs font-bold tabular-nums px-2.5 py-0.5 rounded-full
+          {% if column.key == 'in_progress' %}bg-amber-900/30 text-amber-400 border border-amber-700/30
+          {% elif column.key == 'scheduled' %}bg-blue-900/20 text-blue-400 border border-blue-800/30
+          {% elif column.key == 'done' %}bg-green-900/20 text-green-400 border border-green-800/30
+          {% else %}bg-gray-800 text-gray-500 border border-gray-700/40{% endif %}"
+          data-column-count>
+          {{ column.tasks|length }}
+        </span>
+      </div>
     </div>
 
     <!-- Drop Zone -->
@@ -115,16 +330,16 @@
                     {% else %}border-gray-800/70 text-gray-700{% endif %}">
           {% if column.key == 'backlog' %}
           <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-          <span class="text-xs">Create a task above</span>
+          <span class="text-xs">Press <kbd class="bg-gray-800 border border-gray-700 text-gray-500 px-1 py-px rounded text-[10px] font-mono">N</kbd> to create a task</span>
           {% elif column.key == 'in_progress' %}
           <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span class="text-xs">Idle — nothing running</span>
+          <span class="text-xs">Idle — drag a task here to run</span>
           {% elif column.key == 'scheduled' %}
           <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span class="text-xs">Nothing queued</span>
+          <span class="text-xs">Drag tasks here to queue</span>
           {% else %}
           <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span class="text-xs">No completed tasks yet</span>
+          <span class="text-xs">Completed tasks show here</span>
           {% endif %}
         </div>
       {% endfor %}
@@ -133,61 +348,111 @@
   {% endfor %}
 </div>
 
-<!-- Live Output Slide-over -->
-<div id="live-output-panel"
-     x-data="{ open: false, taskId: null, outputLog: '' }"
-     @open-output.window="open = true; taskId = $event.detail.taskId; outputLog = ''; subscribeToTaskOutput($event.detail.taskId)"
-     x-show="open"
-     x-cloak
-     style="display:none"
-     class="fixed inset-y-0 right-0 w-[480px] bg-gray-900 border-l border-gray-800 z-40 flex flex-col shadow-2xl">
+{# Live output panel lives in base.html — available globally on all pages #}
 
-  <!-- Header -->
-  <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800 shrink-0">
-    <div>
-      <h3 class="font-semibold text-white text-sm">Live Output</h3>
-      <p class="text-xs text-gray-500 mt-0.5" x-text="taskId ? `Task #${taskId}` : ''"></p>
+{# ── Activity Feed & Project Breakdown ── #}
+{% if recent_runs or project_breakdown %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-8">
+
+  {# ── Recent Activity ── #}
+  {% if recent_runs %}
+  <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700/50 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <h3 class="text-sm font-semibold text-white">Recent Activity</h3>
+      </div>
+      <a href="{% url 'tasks:list' %}" class="text-xs text-gray-600 hover:text-indigo-400 transition-colors">View all →</a>
     </div>
-    <button @click="open = false"
-            class="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors">
-      ✕
-    </button>
+    <div class="divide-y divide-gray-800/60 max-h-[360px] overflow-y-auto">
+      {% for run in recent_runs %}
+      <a href="{% url 'tasks:detail' run.task.pk %}"
+         class="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/30 transition-colors group">
+        <div class="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center border
+          {% if run.status == 'done' %}bg-green-900/20 border-green-800/30
+          {% elif run.status == 'failed' %}bg-red-900/20 border-red-800/30
+          {% elif run.status == 'cancelled' %}bg-gray-800 border-gray-700
+          {% else %}bg-gray-800 border-gray-700{% endif %}">
+          {% if run.status == 'done' %}
+          <svg class="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          {% elif run.status == 'failed' %}
+          <svg class="w-3 h-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          {% else %}
+          <svg class="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-300 truncate group-hover:text-white transition-colors">{{ run.task.title }}</p>
+          <div class="flex items-center gap-2 text-[11px] text-gray-600 mt-0.5">
+            {% if run.task.project %}<span>{{ run.task.project.name }}</span><span class="text-gray-800">·</span>{% endif %}
+            <span>{{ run.get_status_display }}</span>
+            {% if run.tokens_used %}<span class="text-gray-800">·</span><span>{{ run.tokens_used|floatformat:0 }} tokens</span>{% endif %}
+          </div>
+        </div>
+        <span class="text-[10px] text-gray-700 shrink-0 tabular-nums" data-timeago="{{ run.started_at|date:'c' }}">{{ run.started_at|timesince }} ago</span>
+      </a>
+      {% endfor %}
+    </div>
   </div>
+  {% endif %}
 
-  <!-- Output stream -->
-  <div class="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed"
-       id="output-scroll-container"
-       x-ref="outputContainer">
-    <pre class="text-green-400 whitespace-pre-wrap break-words"
-         x-text="$store.agentqueue.activeTasks[taskId]?.outputLog || 'Waiting for output...'"></pre>
-    <span class="text-green-600 animate-pulse" x-show="$store.agentqueue.activeTasks[taskId]?.status === 'in_progress'">▊</span>
+  {# ── Project Breakdown ── #}
+  {% if project_breakdown %}
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-indigo-900/20 border border-indigo-700/30 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-sm font-semibold text-white">Projects</h3>
+      </div>
+      <a href="{% url 'projects:list' %}" class="text-xs text-gray-600 hover:text-indigo-400 transition-colors">All →</a>
+    </div>
+    <div class="divide-y divide-gray-800/60">
+      {% for pb in project_breakdown %}
+      <a href="{% url 'projects:detail' pb.project.slug %}"
+         class="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/30 transition-colors group">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-300 truncate group-hover:text-white transition-colors">{{ pb.project.name }}</p>
+          <div class="flex items-center gap-2 mt-1">
+            {% if pb.running %}
+            <span class="inline-flex items-center gap-1 text-[10px] text-amber-400">
+              <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span> {{ pb.running }}
+            </span>
+            {% endif %}
+            {% if pb.queued %}
+            <span class="text-[10px] text-gray-500">{{ pb.queued }} queued</span>
+            {% endif %}
+            {% if pb.done %}
+            <span class="text-[10px] text-green-600">{{ pb.done }} done</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="w-12 h-1.5 bg-gray-800 rounded-full overflow-hidden shrink-0" title="{{ pb.done }}/{{ pb.total }} completed">
+          {% if pb.total > 0 %}
+          <div class="h-full bg-green-600/60 rounded-full" style="width: {% widthratio pb.done pb.total 100 %}%"></div>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
   </div>
+  {% endif %}
 
-  <!-- Footer with tmux command -->
-  <div class="px-5 py-3 border-t border-gray-800 shrink-0"
-       x-show="taskId">
-    <button @click="copyTmuxCommand(taskId)"
-            class="w-full text-xs bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/30 text-amber-400 py-2 rounded-lg transition-colors">
-      Copy tmux attach command
-    </button>
-  </div>
 </div>
-
-<!-- Overlay for live output panel -->
-<div x-data
-     @open-output.window="document.getElementById('overlay').style.display='block'"
-     x-show="false">
-</div>
-<div id="overlay"
-     onclick="document.getElementById('overlay').style.display='none'; document.querySelector('[id=live-output-panel]').__x.$data.open = false"
-     style="display:none"
-     class="fixed inset-0 bg-black/40 z-30 backdrop-blur-sm">
-</div>
+{% endif %}
 
 {# ═══════════════ NEW TASK MODAL ═══════════════ #}
 <div x-show="modalOpen"
      x-cloak
      style="display:none"
+     role="dialog" aria-modal="true" aria-label="New Task"
      class="fixed inset-0 z-50 flex items-center justify-center p-4">
 
   {# Backdrop #}
@@ -236,6 +501,9 @@
           hx-post="{% url 'tasks:create' %}"
           hx-target="#create-modal-fields"
           hx-swap="innerHTML"
+          hx-indicator="#dashboard-create-submit"
+          @keydown.ctrl.enter="$el.requestSubmit()"
+          @keydown.meta.enter="$el.requestSubmit()"
           class="flex-1 overflow-y-auto min-h-0">
       <div id="create-modal-fields" class="px-6 py-5">
         {% include "tasks/partials/create_modal_body.html" with form=task_form projects=projects llm_configs=llm_configs %}
@@ -244,14 +512,19 @@
 
     {# Footer #}
     <div class="flex items-center justify-between px-6 py-4 border-t border-gray-800 shrink-0 bg-gray-900/80">
-      <button type="button" @click="modalOpen = false"
-              class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
-        Cancel
-      </button>
-      <button type="submit" form="create-task-form"
+      <div class="flex items-center gap-3">
+        <button type="button" @click="modalOpen = false"
+                class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+          Cancel
+        </button>
+        <span class="text-[10px] text-gray-700 hidden sm:inline">
+          <kbd class="bg-gray-800 border border-gray-700 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-mono">Ctrl</kbd>+<kbd class="bg-gray-800 border border-gray-700 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-mono">Enter</kbd> to submit
+        </span>
+      </div>
+      <button id="dashboard-create-submit" type="submit" form="create-task-form"
               class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
                      px-5 py-2 rounded-lg transition-colors shadow-lg shadow-indigo-900/30
-                     htmx-loading:opacity-60 htmx-loading:cursor-wait">
+                     [&.htmx-request]:opacity-60 [&.htmx-request]:cursor-wait [&.htmx-request]:pointer-events-none">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -290,7 +563,7 @@
 
   {# Panel #}
   <div x-show="open" x-cloak style="display:none"
-       class="fixed inset-y-0 right-0 w-[560px] bg-gray-900 border-l border-gray-800 z-40 flex flex-col shadow-2xl"
+       class="fixed inset-y-0 right-0 w-full sm:w-[560px] bg-gray-900 border-l border-gray-800 z-40 flex flex-col shadow-2xl"
        x-transition:enter="transition ease-out duration-250"
        x-transition:enter-start="opacity-0 translate-x-6"
        x-transition:enter-end="opacity-100 translate-x-0"
@@ -318,12 +591,24 @@
 
     {# Body — HTMX loads detail_panel.html here #}
     <div id="task-detail-body" class="flex-1 overflow-y-auto">
-      <div class="flex items-center justify-center h-32 gap-2 text-gray-600 text-sm">
-        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-        </svg>
-        Loading...
+      <div class="px-5 py-5 space-y-4 animate-pulse">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-gray-800 rounded-lg"></div>
+          <div class="flex-1 space-y-2">
+            <div class="h-4 bg-gray-800 rounded w-3/4"></div>
+            <div class="h-3 bg-gray-800/60 rounded w-1/2"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="h-16 bg-gray-800/50 rounded-xl"></div>
+          <div class="h-16 bg-gray-800/50 rounded-xl"></div>
+          <div class="h-16 bg-gray-800/50 rounded-xl"></div>
+        </div>
+        <div class="space-y-2">
+          <div class="h-3 bg-gray-800/40 rounded w-full"></div>
+          <div class="h-3 bg-gray-800/40 rounded w-5/6"></div>
+          <div class="h-3 bg-gray-800/40 rounded w-4/6"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -336,6 +621,7 @@
      x-show="open"
      x-cloak
      style="display:none"
+     role="dialog" aria-modal="true" aria-label="Confirm run task"
      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
   <div class="bg-gray-900 border border-gray-700/80 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-4"
        style="min-width:360px; max-width:500px;"
@@ -378,6 +664,7 @@
      x-show="open"
      x-cloak
      style="display:none"
+     role="dialog" aria-modal="true" aria-label="Confirm cancel task"
      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
   <div class="bg-gray-900 border border-red-800/50 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-4"
        style="min-width:380px; max-width:520px;"
@@ -417,14 +704,6 @@
 {% block extra_scripts %}
 <script src="/static/js/kanban.js"></script>
 <script>
-  // Auto-scroll output panel to bottom when new content arrives
-  document.addEventListener('alpine:init', () => {
-    Alpine.effect(() => {
-      const panel = document.getElementById('output-scroll-container');
-      if (panel) panel.scrollTop = panel.scrollHeight;
-    });
-  });
-
   // Live task filter — shows/hides cards based on search term
   function filterCards(term) {
     const q = (term || '').toLowerCase().trim();
@@ -433,10 +712,15 @@
         card.style.display = '';
         return;
       }
-      const title = card.dataset.title || '';
-      const tags  = card.dataset.tags  || '';
-      card.style.display = (title.includes(q) || tags.includes(q)) ? '' : 'none';
+      const title   = card.dataset.title || '';
+      const tags    = card.dataset.tags  || '';
+      const project = card.dataset.project || '';
+      card.style.display = (title.includes(q) || tags.includes(q) || project.includes(q)) ? '' : 'none';
     });
+    // Update column count badges to reflect visible cards only
+    if (typeof Alpine !== 'undefined' && Alpine.store('agentqueue')) {
+      Alpine.store('agentqueue')._refreshColumnCounts();
+    }
   }
 </script>
 {% endblock %}

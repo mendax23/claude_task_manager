@@ -2,113 +2,363 @@
 {% block title %}Schedule — AgentQueue{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-8">
+<div class="max-w-3xl" x-data="{ editing: false }">
+
+<div class="flex items-center justify-between mb-3">
   <div>
     <h1 class="text-2xl font-bold text-white">Schedule</h1>
     <p class="text-sm text-gray-500 mt-0.5">Controls when AgentQueue runs tasks automatically</p>
   </div>
   {% if schedule %}
-  <a href="/admin/scheduling/schedule/{{ schedule.pk }}/change/"
-     class="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500
-            px-4 py-2 rounded-xl transition-colors">
-    Edit in Admin
-  </a>
-  {% else %}
-  <a href="/admin/scheduling/schedule/add/"
-     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
-            px-4 py-2 rounded-xl transition-colors">
-    Configure
-  </a>
+  <div class="flex items-center gap-2">
+    <button hx-post="{% url 'scheduling:toggle' %}"
+            hx-target="#token-budget-bar"
+            hx-swap="outerHTML"
+            hx-on::after-request="location.reload()"
+            class="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl transition-colors border
+                   {% if schedule.is_active %}text-green-400 border-green-700/50 bg-green-900/15 hover:bg-green-900/30
+                   {% else %}text-amber-400 border-amber-700/50 bg-amber-900/15 hover:bg-amber-900/30{% endif %}">
+      {% if schedule.is_active %}
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6"/>
+      </svg>
+      Pause
+      {% else %}
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+      </svg>
+      Resume
+      {% endif %}
+    </button>
+    <button @click="editing = !editing"
+            class="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500
+                   px-4 py-2 rounded-xl transition-colors"
+            x-text="editing ? 'Cancel' : 'Edit Settings'">
+      Edit Settings
+    </button>
+  </div>
   {% endif %}
+</div>
+
+{# ── Sub-navigation ── #}
+<div class="flex items-center gap-1 mb-8 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
+  <a href="{% url 'scheduling:settings' %}"
+     class="text-xs font-medium px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 transition-colors">
+    Settings
+  </a>
+  <a href="{% url 'scheduling:budget' %}"
+     class="text-xs font-medium px-4 py-2 rounded-lg text-gray-500 hover:text-gray-300 border border-transparent transition-colors">
+    Token Budget
+  </a>
 </div>
 
 {% if schedule %}
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+{# ── Read-only Stats ── #}
+<div x-show="!editing">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
 
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
-      <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Idle Threshold</p>
+      <p class="text-2xl font-bold text-white">{{ schedule.idle_threshold_minutes }}<span class="text-sm font-normal text-gray-500 ml-1">min</span></p>
+      <p class="text-xs text-gray-600 mt-1">Machine must be idle this long before launching</p>
     </div>
-    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Idle Threshold</p>
-    <p class="text-2xl font-bold text-white">{{ schedule.idle_threshold_minutes }}<span class="text-sm font-normal text-gray-500 ml-1">min</span></p>
-    <p class="text-xs text-gray-600 mt-1">Machine must be idle this long before launching</p>
-  </div>
 
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
-      <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-      </svg>
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Away Threshold</p>
+      <p class="text-2xl font-bold text-white">{{ schedule.away_threshold_hours }}<span class="text-sm font-normal text-gray-500 ml-1">hr</span></p>
+      <p class="text-xs text-gray-600 mt-1">Long-idle detection (overnight / weekend)</p>
     </div>
-    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Away Threshold</p>
-    <p class="text-2xl font-bold text-white">{{ schedule.away_threshold_hours }}<span class="text-sm font-normal text-gray-500 ml-1">hr</span></p>
-    <p class="text-xs text-gray-600 mt-1">Long-idle detection (overnight / weekend)</p>
-  </div>
 
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
-      <svg class="w-4 h-4 {% if schedule.enable_token_spreading %}text-green-400{% else %}text-gray-600{% endif %}"
-           fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-      </svg>
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 {% if schedule.enable_token_spreading %}text-green-400{% else %}text-gray-600{% endif %}"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Token Spreading</p>
+      <p class="text-2xl font-bold {% if schedule.enable_token_spreading %}text-green-400{% else %}text-gray-600{% endif %}">
+        {{ schedule.enable_token_spreading|yesno:"Enabled,Disabled" }}
+      </p>
+      <p class="text-xs text-gray-600 mt-1">Spread usage evenly across the week</p>
     </div>
-    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Token Spreading</p>
-    <p class="text-2xl font-bold {% if schedule.enable_token_spreading %}text-green-400{% else %}text-gray-600{% endif %}">
-      {{ schedule.enable_token_spreading|yesno:"Enabled,Disabled" }}
-    </p>
-    <p class="text-xs text-gray-600 mt-1">Spread usage evenly across the week</p>
-  </div>
 
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
-      <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M13 10V3L4 14h7v7l9-11h-7z"/>
-      </svg>
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</p>
+      <p class="text-2xl font-bold {% if schedule.is_active %}text-green-400{% else %}text-red-400{% endif %}">
+        {{ schedule.is_active|yesno:"Active,Paused" }}
+      </p>
+      <p class="text-xs text-gray-600 mt-1">Schedule is {% if not schedule.is_active %}not {% endif %}running</p>
     </div>
-    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</p>
-    <p class="text-2xl font-bold {% if schedule.is_active %}text-green-400{% else %}text-red-400{% endif %}">
-      {{ schedule.is_active|yesno:"Active,Paused" }}
-    </p>
-    <p class="text-xs text-gray-600 mt-1">Schedule is {% if not schedule.is_active %}not {% endif %}running</p>
-  </div>
 
-  {% if schedule.max_run_window_hours %}
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-    <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
-      <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
+    {% if schedule.max_run_window_hours %}
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Max Run Window</p>
+      <p class="text-2xl font-bold text-white">{{ schedule.max_run_window_hours }}<span class="text-sm font-normal text-gray-500 ml-1">hr</span></p>
+      <p class="text-xs text-gray-600 mt-1">Max consecutive hours of auto-running</p>
     </div>
-    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Max Run Window</p>
-    <p class="text-2xl font-bold text-white">{{ schedule.max_run_window_hours }}<span class="text-sm font-normal text-gray-500 ml-1">hr</span></p>
-    <p class="text-xs text-gray-600 mt-1">Max consecutive hours of auto-running</p>
-  </div>
-  {% endif %}
+    {% endif %}
 
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 sm:col-span-2 lg:col-span-3"
+         x-data="{ days: {{ schedule.allowed_days }}, labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] }">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-3">Allowed Days</p>
+      <div class="flex gap-2 flex-wrap">
+        <template x-for="(label, i) in labels" :key="i">
+          <span class="text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors"
+                :class="(days & (1 << i)) ? 'bg-cyan-900/20 border-cyan-700/30 text-cyan-400' : 'bg-gray-800 border-gray-700 text-gray-600'"
+                x-text="label"></span>
+        </template>
+      </div>
+      <p class="text-xs text-gray-600 mt-2" x-text="days === 127 ? 'Runs every day' : 'Limited to selected days'"></p>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 sm:col-span-2 lg:col-span-3"
+         x-data="{ windows: {{ schedule.allowed_hours|default:'[]' }} }">
+      <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
+        <svg class="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-3">Allowed Hours</p>
+      <template x-if="windows.length === 0">
+        <p class="text-sm text-gray-400">No restrictions — tasks can run at any hour</p>
+      </template>
+      <div class="space-y-2">
+        <template x-for="(w, i) in windows" :key="i">
+          <div class="inline-flex items-center gap-2 bg-orange-900/10 border border-orange-700/20 rounded-lg px-3 py-1.5 mr-2">
+            <svg class="w-3.5 h-3.5 text-orange-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm text-orange-300" x-text="(w.start < 10 ? '0' : '') + w.start + ':00'"></span>
+            <span class="text-xs text-gray-600">→</span>
+            <span class="text-sm text-orange-300" x-text="(w.end < 10 ? '0' : '') + w.end + ':00'"></span>
+          </div>
+        </template>
+      </div>
+      <p class="text-xs text-gray-600 mt-2" x-show="windows.length > 0">Tasks only auto-launch during these hours</p>
+    </div>
+
+  </div>
+</div>
+
+{# ── Inline Edit Form ── #}
+<div x-show="editing" x-transition x-cloak>
+  <form method="post" class="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-6">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="bg-red-950/40 border border-red-800/40 rounded-xl px-4 py-3">
+      <p class="text-sm text-red-400 font-medium mb-1">Please fix the following errors:</p>
+      <ul class="text-xs text-red-300 list-disc list-inside space-y-0.5">
+        {% for field, errors in form.errors.items %}
+        {% for error in errors %}
+        <li>{{ field|title }}: {{ error }}</li>
+        {% endfor %}
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Idle Threshold (minutes)</label>
+        <input type="number" name="idle_threshold_minutes" value="{{ form.idle_threshold_minutes.value }}" min="1"
+               class="w-full bg-gray-800/80 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white
+                      focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors">
+        <p class="text-xs text-gray-600 mt-1">How long machine must be idle before launching tasks</p>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Away Threshold (hours)</label>
+        <input type="number" name="away_threshold_hours" value="{{ form.away_threshold_hours.value }}" min="1"
+               class="w-full bg-gray-800/80 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white
+                      focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors">
+        <p class="text-xs text-gray-600 mt-1">Long-idle detection for overnight/weekend</p>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Max Run Window (hours)</label>
+        <input type="number" name="max_run_window_hours" value="{{ form.max_run_window_hours.value }}" min="1"
+               class="w-full bg-gray-800/80 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white
+                      focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors">
+        <p class="text-xs text-gray-600 mt-1">Max consecutive hours of auto-running</p>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-800 pt-5 mb-5"
+         x-data="{ days: {{ schedule.allowed_days }}, labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] }">
+      <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Allowed Days</label>
+      <input type="hidden" name="allowed_days" :value="days">
+      <div class="flex gap-2 flex-wrap">
+        <template x-for="(label, i) in labels" :key="i">
+          <button type="button" @click="days ^= (1 << i)"
+                  class="text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors cursor-pointer"
+                  :class="(days & (1 << i)) ? 'bg-cyan-900/20 border-cyan-700/30 text-cyan-400' : 'bg-gray-800 border-gray-700 text-gray-600 hover:text-gray-400'"
+                  x-text="label"></button>
+        </template>
+      </div>
+      <p class="text-xs text-gray-600 mt-2">Click to toggle. Scheduler only runs on selected days.</p>
+    </div>
+
+    <div class="border-t border-gray-800 pt-5 mb-5"
+         x-data="{ windows: {{ schedule.allowed_hours|default:'[]' }} }">
+      <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Allowed Hours</label>
+      <input type="hidden" name="allowed_hours" :value="JSON.stringify(windows)">
+      <div class="space-y-3">
+        <template x-for="(w, i) in windows" :key="i">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">From</label>
+              <select x-model.number="windows[i].start"
+                      class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1.5 focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30">
+                <template x-for="h in 24" :key="h">
+                  <option :value="h-1" x-text="(h-1 < 10 ? '0' : '') + (h-1) + ':00'" :selected="w.start === h-1"></option>
+                </template>
+              </select>
+            </div>
+            <span class="text-gray-600">→</span>
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">To</label>
+              <select x-model.number="windows[i].end"
+                      class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1.5 focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30">
+                <template x-for="h in 24" :key="h">
+                  <option :value="h-1" x-text="(h-1 < 10 ? '0' : '') + (h-1) + ':00'" :selected="w.end === h-1"></option>
+                </template>
+              </select>
+            </div>
+            <button type="button" @click="windows.splice(i, 1)"
+                    class="text-red-500/60 hover:text-red-400 transition-colors p-1">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        </template>
+      </div>
+      <button type="button" @click="windows.push({start: 22, end: 8})"
+              class="mt-3 flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add time window
+      </button>
+      <p class="text-xs text-gray-600 mt-2">
+        Define when tasks are allowed to auto-launch. Empty = always allowed.
+        <span class="text-gray-500" x-show="windows.length > 0">Supports overnight ranges (e.g. 22:00 → 08:00).</span>
+      </p>
+    </div>
+
+    <div class="space-y-4 border-t border-gray-800 pt-5">
+      <div class="flex items-center gap-3">
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="is_active" class="sr-only peer" {% if form.is_active.value %}checked{% endif %}>
+          <div class="w-9 h-5 bg-gray-700 peer-focus:ring-2 peer-focus:ring-indigo-500/40 rounded-full peer
+                      peer-checked:bg-green-600 transition-colors after:content-[''] after:absolute after:top-0.5
+                      after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                      peer-checked:after:translate-x-full"></div>
+        </label>
+        <span class="text-sm text-gray-300">Scheduler active</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="enable_token_spreading" class="sr-only peer" {% if form.enable_token_spreading.value %}checked{% endif %}>
+          <div class="w-9 h-5 bg-gray-700 peer-focus:ring-2 peer-focus:ring-indigo-500/40 rounded-full peer
+                      peer-checked:bg-green-600 transition-colors after:content-[''] after:absolute after:top-0.5
+                      after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                      peer-checked:after:translate-x-full"></div>
+        </label>
+        <span class="text-sm text-gray-300">Enable token spreading</span>
+        <span class="text-xs text-gray-600">(prevent burning all tokens at start of week)</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 pt-4 border-t border-gray-800">
+      <button type="submit"
+              class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-5 py-2.5
+                     rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+        Save Changes
+      </button>
+      <button type="button" @click="editing = false"
+              class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+        Cancel
+      </button>
+    </div>
+  </form>
 </div>
 
 {% else %}
 
-<div class="flex flex-col items-center justify-center py-24 text-center">
-  <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
-    <svg class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
+{# ── No Schedule: Create One ── #}
+<form method="post" class="max-w-lg mx-auto">
+  {% csrf_token %}
+  <div class="flex flex-col items-center justify-center py-16 text-center">
+    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-950/50 to-gray-900 border border-indigo-800/30 flex items-center justify-center mb-5 relative">
+      <svg class="w-9 h-9 text-indigo-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <div class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gray-950 border border-gray-800 flex items-center justify-center">
+        <svg class="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+      </div>
+    </div>
+    <h3 class="text-base font-semibold text-white mb-1.5">No schedule configured</h3>
+    <p class="text-sm text-gray-500 mb-2 max-w-xs leading-relaxed">
+      Set up idle-detection so AgentQueue auto-launches tasks when you step away.
+    </p>
+    <p class="text-xs text-gray-600 mb-6">Defaults: 15 min idle threshold, token spreading on</p>
+
+    <input type="hidden" name="idle_threshold_minutes" value="15">
+    <input type="hidden" name="away_threshold_hours" value="1">
+    <input type="hidden" name="max_run_window_hours" value="4">
+    <input type="hidden" name="is_active" value="on">
+    <input type="hidden" name="enable_token_spreading" value="on">
+
+    <button type="submit"
+            class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+                   px-6 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+      Enable Auto-Scheduling
+    </button>
   </div>
-  <p class="text-gray-500 mb-2">No schedule configured</p>
-  <a href="/admin/scheduling/schedule/add/" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
-    Set one up in admin →
-  </a>
-</div>
+</form>
 
 {% endif %}
+</div>
 {% endblock %}

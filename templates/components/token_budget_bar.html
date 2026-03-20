@@ -6,32 +6,40 @@
      hx-swap="outerHTML">
 
   {% if budget %}
-  <div class="flex items-center gap-3">
-    <span class="text-gray-500 font-medium tracking-wide uppercase" style="font-size: .65rem; letter-spacing: .08em;">Week</span>
-    <div class="w-28 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-      <div class="h-full rounded-full transition-all duration-700
-                  {% if budget.pct_used < 50 %}bg-green-500
-                  {% elif budget.pct_used < 75 %}bg-yellow-500
-                  {% elif budget.pct_used < 90 %}bg-orange-500
-                  {% else %}bg-red-500{% endif %}"
-           style="width: {{ budget.pct_used|floatformat:0 }}%"
-           :style="`width: ${$store.agentqueue.tokenBudget.pctUsed || {{ budget.pct_used|floatformat:0 }}}%`">
+  <div class="flex items-center gap-3" x-data="{ get pct() { return $store.agentqueue.tokenBudget.pctUsed || {{ budget.pct_used|floatformat:0 }}; } }">
+    <span class="text-gray-500 font-medium tracking-wide uppercase hidden sm:inline" style="font-size: .65rem; letter-spacing: .08em;">Tokens</span>
+    <div class="w-20 sm:w-28 h-1.5 bg-gray-800 rounded-full overflow-hidden"
+         role="progressbar" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100" aria-label="Weekly token budget usage">
+      <div class="h-full rounded-full transition-all duration-700"
+           :class="{
+             'bg-green-500':  pct < 50,
+             'bg-yellow-500': pct >= 50 && pct < 75,
+             'bg-orange-500': pct >= 75 && pct < 90,
+             'bg-red-500':    pct >= 90
+           }"
+           :style="`width: ${pct}%`">
       </div>
     </div>
     <span class="font-bold tabular-nums"
           :class="{
-            'text-green-400':  $store.agentqueue.tokenBudget.pctUsed < 50,
-            'text-yellow-400': $store.agentqueue.tokenBudget.pctUsed >= 50 && $store.agentqueue.tokenBudget.pctUsed < 75,
-            'text-orange-400': $store.agentqueue.tokenBudget.pctUsed >= 75 && $store.agentqueue.tokenBudget.pctUsed < 90,
-            'text-red-400':    $store.agentqueue.tokenBudget.pctUsed >= 90
+            'text-green-400':  pct < 50,
+            'text-yellow-400': pct >= 50 && pct < 75,
+            'text-orange-400': pct >= 75 && pct < 90,
+            'text-red-400':    pct >= 90
           }"
-          :x-text="`${($store.agentqueue.tokenBudget.pctUsed || {{ budget.pct_used|floatformat:0 }}).toFixed(0)}%`">
+          x-text="`${pct.toFixed(0)}%`"
+          :title="`${($store.agentqueue.tokenBudget.weeklyUsed || {{ budget.tokens_used_this_week }}).toLocaleString()} / ${($store.agentqueue.tokenBudget.weeklyLimit || {{ budget.weekly_limit }}).toLocaleString()} tokens`">
       {{ budget.pct_used|floatformat:0 }}%
+    </span>
+    <span class="hidden lg:inline text-gray-700 tabular-nums"
+          style="font-size: .65rem;"
+          x-text="`${(($store.agentqueue.tokenBudget.weeklyUsed || {{ budget.tokens_used_this_week }}) / 1000).toFixed(0)}k / ${(($store.agentqueue.tokenBudget.weeklyLimit || {{ budget.weekly_limit }}) / 1000).toFixed(0)}k`">
+      {{ budget.tokens_used_this_week }}/ {{ budget.weekly_limit }}
     </span>
   </div>
   {% else %}
   <div class="flex items-center gap-2 text-gray-600">
-    Budget: <a href="/admin/scheduling/tokenbudget/add/" class="text-indigo-500 hover:text-indigo-400">configure</a>
+    Budget: <a href="{% url 'scheduling:budget' %}" class="text-indigo-500 hover:text-indigo-400">configure</a>
   </div>
   {% endif %}
 
@@ -60,7 +68,8 @@
 
   {% if schedule %}
   <button hx-post="{% url 'scheduling:toggle' %}"
-          hx-swap="none"
+          hx-target="#token-budget-bar"
+          hx-swap="outerHTML"
           title="{% if schedule.is_active %}Pause auto-scheduler{% else %}Resume auto-scheduler{% endif %}"
           class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors
                  {% if schedule.is_active %}text-green-500/70 hover:text-green-400 hover:bg-green-900/20

@@ -30,11 +30,16 @@
     <button hx-post="{% url 'projects:suggest_create' project.slug %}"
             hx-target="#suggestion-{{ forloop.counter }}"
             hx-swap="outerHTML"
-            hx-vals='{"title": "{{ s.title|escapejs }}", "prompt": "{{ s.prompt|escapejs }}", "task_type": "{{ s.task_type }}", "priority": "{{ s.priority }}", "tags": "{{ s.tags|default:\"[]\" }}"}'
+            hx-indicator="this"
+            hx-vals='{"title": "{{ s.title|escapejs }}", "prompt": "{{ s.prompt|escapejs }}", "task_type": "{{ s.task_type }}", "priority": "{{ s.priority }}", "tags": "{{ s.tags }}"}'
             class="shrink-0 text-xs bg-indigo-600/10 hover:bg-indigo-600/25 border border-indigo-500/30
                    hover:border-indigo-500/60 text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-lg
-                   transition-all whitespace-nowrap">
-      + Add
+                   transition-all whitespace-nowrap [&.htmx-request]:opacity-60 [&.htmx-request]:cursor-wait">
+      <svg class="w-3 h-3 inline animate-spin mr-0.5 htmx-indicator" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>
+      <span class="[.htmx-request_&]:opacity-0">+ Add</span>
     </button>
   </div>
   {% endfor %}

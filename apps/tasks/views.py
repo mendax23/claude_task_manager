@@ -54,8 +54,11 @@ def task_list(request):
     )
 
     # Pagination
-    per_page = int(request.GET.get("per_page", 50))
-    per_page = min(per_page, 200)  # cap
+    try:
+        per_page = int(request.GET.get("per_page", 50))
+    except (ValueError, TypeError):
+        per_page = 50
+    per_page = max(1, min(per_page, 200))  # clamp 1–200
     paginator = Paginator(tasks_qs, per_page)
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
@@ -413,7 +416,10 @@ def task_reorder(request):
     task = get_object_or_404(Task, pk=task_id)
     if new_status in TaskStatus.values:
         task.status = new_status
-    task.kanban_order = int(new_order)
+    try:
+        task.kanban_order = int(new_order)
+    except (ValueError, TypeError):
+        task.kanban_order = 0
     task.save(update_fields=["status", "kanban_order", "updated_at"])
 
     return JsonResponse({"ok": True})
@@ -453,7 +459,7 @@ def task_bulk_action(request):
                     continue
                 task.status = TaskStatus.IN_PROGRESS
                 task.save(update_fields=["status", "updated_at"])
-                run = TaskRun.objects.create(task=task, status=TaskStatus.IN_PROGRESS)
+                run = TaskRun.objects.create(task=task)
             try:
                 run_task.delay(task.pk, run.pk)
             except Exception:
@@ -473,6 +479,12 @@ def task_bulk_action(request):
             task.status = TaskStatus.BACKLOG
             task.save(update_fields=["status", "updated_at"])
             for run in task.runs.filter(status=TaskStatus.IN_PROGRESS):
+                if run.tmux_session:
+                    try:
+                        from apps.tasks.services.tmux_manager import TmuxManager
+                        TmuxManager().kill_session(run.tmux_session)
+                    except Exception:
+                        pass
                 run.status = TaskStatus.CANCELLED
                 run.save(update_fields=["status"])
             cancelled += 1

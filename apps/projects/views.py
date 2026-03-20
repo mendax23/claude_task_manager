@@ -6,13 +6,22 @@ from .forms import ProjectForm
 
 
 def project_list(request):
-    projects = Project.objects.filter(is_active=True)
+    from django.db.models import Count, Q
+    projects = Project.objects.filter(is_active=True).annotate(
+        tasks_total=Count("tasks"),
+        tasks_backlog=Count("tasks", filter=Q(tasks__status="backlog")),
+        tasks_running=Count("tasks", filter=Q(tasks__status="in_progress")),
+        tasks_done=Count("tasks", filter=Q(tasks__status="done")),
+        tasks_failed=Count("tasks", filter=Q(tasks__status="failed")),
+        tasks_scheduled=Count("tasks", filter=Q(tasks__status="scheduled")),
+        tasks_paused=Count("tasks", filter=Q(tasks__status="paused")),
+    )
     return render(request, "projects/list.html", {"projects": projects})
 
 
 def project_detail(request, slug):
     project = get_object_or_404(Project, slug=slug)
-    tasks = project.tasks.order_by("kanban_order", "-priority")
+    tasks = project.tasks.select_related("llm_config").order_by("kanban_order", "-priority")
     return render(request, "projects/detail.html", {"project": project, "tasks": tasks})
 
 
@@ -22,6 +31,23 @@ def project_create(request):
         project = form.save()
         return redirect("projects:detail", slug=project.slug)
     return render(request, "projects/create.html", {"form": form})
+
+
+def project_edit(request, slug):
+    project = get_object_or_404(Project, slug=slug)
+    form = ProjectForm(request.POST or None, instance=project)
+    if request.method == "POST" and form.is_valid():
+        project = form.save()
+        return redirect("projects:detail", slug=project.slug)
+    return render(request, "projects/edit.html", {"form": form, "project": project})
+
+
+@require_POST
+def project_delete(request, slug):
+    project = get_object_or_404(Project, slug=slug)
+    project.is_active = False
+    project.save(update_fields=["is_active", "updated_at"])
+    return redirect("projects:list")
 
 
 @require_POST
@@ -69,7 +95,10 @@ def create_from_suggestion(request, slug):
     title = request.POST.get("title", "").strip()
     prompt = request.POST.get("prompt", "").strip()
     task_type = request.POST.get("task_type", "one_shot")
-    priority = int(request.POST.get("priority", 2))
+    try:
+        priority = int(request.POST.get("priority", 2))
+    except (ValueError, TypeError):
+        priority = 2
     tags_raw = request.POST.get("tags", "[]")
 
     if not title or not prompt:
@@ -80,7 +109,14 @@ def create_from_suggestion(request, slug):
     try:
         tags = json.loads(tags_raw)
     except Exception:
-        tags = []
+        # Handle Python list repr from Django template rendering
+        try:
+            import ast
+            tags = ast.literal_eval(tags_raw)
+            if not isinstance(tags, list):
+                tags = []
+        except Exception:
+            tags = []
 
     from apps.tasks.models import Task, TaskStatus
     task = Task.objects.create(

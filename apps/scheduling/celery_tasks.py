@@ -16,15 +16,19 @@ def sample_idle_state():
     event = detector.sample_and_save()
 
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "dashboard",
-        {
-            "type": "idle_update",
-            "is_idle": event.is_idle,
-            "idle_ms": event.idle_ms,
-            "source": event.source,
-        },
-    )
+    if channel_layer:
+        try:
+            async_to_sync(channel_layer.group_send)(
+                "dashboard",
+                {
+                    "type": "idle_update",
+                    "is_idle": event.is_idle,
+                    "idle_ms": event.idle_ms,
+                    "source": event.source,
+                },
+            )
+        except Exception as e:
+            logger.debug("idle broadcast skipped: %s", e)
 
 
 @shared_task

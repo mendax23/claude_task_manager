@@ -65,6 +65,7 @@ class OpenRouterProvider(LLMProvider):
         client = self._get_client()
         messages = self._build_messages(request)
 
+        tokens_used = 0
         try:
             stream = await client.chat.completions.create(
                 model=request.model or self.config.model_name or "openai/gpt-4o-mini",
@@ -72,15 +73,18 @@ class OpenRouterProvider(LLMProvider):
                 max_tokens=request.max_tokens or self.config.max_tokens,
                 temperature=request.temperature if request.temperature is not None else self.config.temperature,
                 stream=True,
+                stream_options={"include_usage": True},
                 **request.extra,
             )
 
             async for chunk in stream:
+                if chunk.usage:
+                    tokens_used = chunk.usage.completion_tokens or 0
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if delta and delta.content:
                     yield LLMChunk(text=delta.content)
                 if chunk.choices and chunk.choices[0].finish_reason:
-                    yield LLMChunk(text="", is_final=True, stop_reason=chunk.choices[0].finish_reason)
+                    yield LLMChunk(text="", is_final=True, tokens_used=tokens_used, stop_reason=chunk.choices[0].finish_reason)
         except Exception as e:
             raise ProviderError(str(e)) from e
 

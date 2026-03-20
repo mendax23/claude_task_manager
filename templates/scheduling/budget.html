@@ -3,12 +3,12 @@
 {% block title %}Token Budget — AgentQueue{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-8">
+<div class="flex items-center justify-between mb-3">
   <div>
     <h1 class="text-2xl font-bold text-white">Token Budget</h1>
     <p class="text-sm text-gray-500 mt-0.5">Weekly usage tracking per provider</p>
   </div>
-  <a href="/admin/scheduling/tokenbudget/add/"
+  <a href="{% url 'scheduling:budget_create' %}"
      class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
             px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -16,6 +16,51 @@
     </svg>
     Add Budget
   </a>
+</div>
+
+{# ── Sub-navigation ── #}
+<div class="flex items-center gap-1 mb-8 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
+  <a href="{% url 'scheduling:settings' %}"
+     class="text-xs font-medium px-4 py-2 rounded-lg text-gray-500 hover:text-gray-300 border border-transparent transition-colors">
+    Settings
+  </a>
+  <a href="{% url 'scheduling:budget' %}"
+     class="text-xs font-medium px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 transition-colors">
+    Token Budget
+  </a>
+</div>
+
+{# ── 14-Day Usage Chart ── #}
+<div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6 max-w-2xl"
+     x-data="{
+       series: {{ daily_series }},
+       get maxTokens() { return Math.max(...this.series.map(d => d.tokens), 1); },
+       barHeight(tokens) { return Math.max((tokens / this.maxTokens) * 100, 2); },
+     }">
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <h3 class="text-sm font-semibold text-white">Daily Token Usage</h3>
+    </div>
+    <span class="text-[10px] text-gray-600 uppercase tracking-wider">Last 14 days</span>
+  </div>
+  <div class="flex items-end gap-1 h-24">
+    <template x-for="(d, i) in series" :key="i">
+      <div class="flex-1 flex flex-col items-center gap-1 group relative">
+        <div class="w-full rounded-t transition-all duration-200 group-hover:opacity-100"
+             :class="i === series.length - 1 ? 'bg-indigo-500 opacity-100' : 'bg-indigo-500/40 opacity-70'"
+             :style="`height: ${barHeight(d.tokens)}%`"
+             :title="`${d.day}: ${d.tokens.toLocaleString()} tokens`"></div>
+        <span class="text-[9px] text-gray-700 tabular-nums hidden sm:block"
+              :class="i === series.length - 1 ? 'text-gray-400 font-medium' : ''"
+              x-text="d.day"></span>
+        <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-[10px] text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 tabular-nums"
+             x-text="`${d.tokens.toLocaleString()} tokens`"></div>
+      </div>
+    </template>
+  </div>
 </div>
 
 {% for budget in budgets %}
@@ -63,20 +108,27 @@
     </div>
     <div class="bg-gray-800/50 rounded-xl p-3 text-center">
       <p class="text-xs text-gray-600 mb-1">Resets</p>
-      <p class="text-sm font-bold text-white">Mon {{ budget.reset_time }}</p>
+      <p class="text-sm font-bold text-white">
+        {% with day=budget.reset_weekday %}{% if day == 1 %}Mon{% elif day == 2 %}Tue{% elif day == 3 %}Wed{% elif day == 4 %}Thu{% elif day == 5 %}Fri{% elif day == 6 %}Sat{% elif day == 7 %}Sun{% else %}Day {{ day }}{% endif %}{% endwith %} {{ budget.reset_time|time:"H:i" }}
+      </p>
     </div>
   </div>
 
   {% if budget.session_expires_at %}
-  <div class="flex items-center gap-2 text-xs bg-orange-950/30 border border-orange-800/30 rounded-xl px-3 py-2 mb-4">
-    <svg class="w-3.5 h-3.5 text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+  <div class="flex items-center gap-2 text-xs bg-orange-950/30 border border-orange-800/30 rounded-xl px-3 py-2 mb-4"
+       x-data="{ expired: new Date('{{ budget.session_expires_at|date:'c' }}') < new Date() }">
+    <svg class="w-3.5 h-3.5 shrink-0" :class="expired ? 'text-red-400' : 'text-orange-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
-    <span class="text-orange-300">Session expires {{ budget.session_expires_at|naturaltime }}</span>
+    <span :class="expired ? 'text-red-300' : 'text-orange-300'"
+          x-text="expired ? 'Session expired — drain mode active' : 'Session expires {{ budget.session_expires_at|naturaltime }}'">
+      Session expires {{ budget.session_expires_at|naturaltime }}
+    </span>
+    <span class="text-[10px] text-gray-600 ml-auto font-mono" data-timeago="{{ budget.session_expires_at|date:'c' }}">{{ budget.session_expires_at|naturaltime }}</span>
   </div>
   {% endif %}
 
-  <a href="/admin/scheduling/tokenbudget/{{ budget.pk }}/change/"
+  <a href="{% url 'scheduling:budget_edit' budget.pk %}"
      class="text-xs text-gray-600 hover:text-indigo-400 transition-colors">
     Edit budget settings →
   </a>
@@ -89,8 +141,8 @@
     </svg>
   </div>
   <p class="text-gray-500 mb-2">No token budgets configured</p>
-  <a href="/admin/scheduling/tokenbudget/add/" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
-    Add one in admin →
+  <a href="{% url 'scheduling:budget_create' %}" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+    Add your first budget →
   </a>
 </div>
 {% endfor %}

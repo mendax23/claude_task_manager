@@ -6,39 +6,175 @@
 <div x-data="{
   search: new URLSearchParams(location.search).get('q') || '',
   statusFilter: new URLSearchParams(location.search).get('status') || 'all',
-  get filteredTasks() {
-    return Array.from(document.querySelectorAll('[data-task-row]')).forEach(el => {
+  priorityFilter: new URLSearchParams(location.search).get('priority') || 'all',
+  projectFilter: new URLSearchParams(location.search).get('project') || 'all',
+  selected: [],
+  selectMode: false,
+  modalOpen: false,
+  focusedIdx: -1,
+  visibleCount: {{ tasks|length }},
+  totalCount: {{ total_count }},
+  toggleSelect(id) { const i = this.selected.indexOf(id); if (i === -1) this.selected.push(id); else this.selected.splice(i, 1); },
+  selectAll() { this.selected = Array.from(document.querySelectorAll('[data-task-row]')).filter(el => el.style.display !== 'none').map(el => parseInt(el.dataset.taskId)); },
+  _visibleRows() { return Array.from(document.querySelectorAll('[data-task-row]')).filter(el => el.style.display !== 'none'); },
+  focusRow(dir) {
+    const rows = this._visibleRows();
+    if (!rows.length) return;
+    this.focusedIdx = dir === 1
+      ? Math.min(this.focusedIdx + 1, rows.length - 1)
+      : Math.max(this.focusedIdx - 1, 0);
+    rows.forEach((r, i) => r.classList.toggle('ring-1', i === this.focusedIdx));
+    rows.forEach((r, i) => r.classList.toggle('ring-indigo-500/50', i === this.focusedIdx));
+    rows[this.focusedIdx]?.scrollIntoView({ block: 'nearest' });
+  },
+  openFocused() {
+    const rows = this._visibleRows();
+    if (this.focusedIdx >= 0 && rows[this.focusedIdx]) {
+      if (this.selectMode) {
+        this.toggleSelect(parseInt(rows[this.focusedIdx].dataset.taskId));
+      } else {
+        window.location = rows[this.focusedIdx].querySelector('a')?.href || `/tasks/${rows[this.focusedIdx].dataset.taskId}/`;
+      }
+    }
+  },
+  filterTasks() {
+    let count = 0;
+    Array.from(document.querySelectorAll('[data-task-row]')).forEach(el => {
       const title = el.dataset.title.toLowerCase();
       const status = el.dataset.status;
       const project = (el.dataset.project || '').toLowerCase();
       const tags = (el.dataset.tags || '').toLowerCase();
+      const priority = el.dataset.priority || '';
       const matchSearch = !this.search || title.includes(this.search.toLowerCase())
                           || project.includes(this.search.toLowerCase())
                           || tags.includes(this.search.toLowerCase());
       const matchStatus = this.statusFilter === 'all' || status === this.statusFilter;
-      el.style.display = (matchSearch && matchStatus) ? '' : 'none';
+      const matchPriority = this.priorityFilter === 'all' || priority === this.priorityFilter;
+      const matchProject = this.projectFilter === 'all' || project === this.projectFilter.toLowerCase();
+      const visible = matchSearch && matchStatus && matchPriority && matchProject;
+      el.style.display = visible ? '' : 'none';
+      if (visible) count++;
     });
+    this.visibleCount = count;
   }
 }"
-x-effect="filteredTasks">
+x-effect="filterTasks()"
+x-init="
+  $watch('search', v => { const p = new URLSearchParams(location.search); if (v) p.set('q', v); else p.delete('q'); history.replaceState(null, '', p.toString() ? '?' + p.toString() : location.pathname); });
+  $watch('statusFilter', v => { const p = new URLSearchParams(location.search); if (v && v !== 'all') p.set('status', v); else p.delete('status'); history.replaceState(null, '', p.toString() ? '?' + p.toString() : location.pathname); });
+  $watch('priorityFilter', v => { const p = new URLSearchParams(location.search); if (v && v !== 'all') p.set('priority', v); else p.delete('priority'); history.replaceState(null, '', p.toString() ? '?' + p.toString() : location.pathname); });
+  $watch('projectFilter', v => { const p = new URLSearchParams(location.search); if (v && v !== 'all') p.set('project', v); else p.delete('project'); history.replaceState(null, '', p.toString() ? '?' + p.toString() : location.pathname); });
+  $watch('modalOpen', v => { if(v) { this._prevFocus = document.activeElement; $nextTick(() => document.querySelector('#task-list-modal input[name=title]')?.focus()); } else { $nextTick(() => this._prevFocus?.focus()); } });
+"
+@keydown.escape.window="modalOpen = false"
+@keydown.n.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { modalOpen = true; $event.preventDefault(); }"
+@keydown.j.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { focusRow(1); $event.preventDefault(); }"
+@keydown.k.window="if (!modalOpen && !$event.target.matches('input,textarea,select')) { focusRow(-1); $event.preventDefault(); }"
+@keydown.enter.window="if (!modalOpen && focusedIdx >= 0 && !$event.target.matches('input,textarea,select,button')) { openFocused(); $event.preventDefault(); }"
+@keydown.x.window="if (!modalOpen && !$event.target.matches('input,textarea,select') && selectMode && focusedIdx >= 0) { const rows = _visibleRows(); if(rows[focusedIdx]) toggleSelect(parseInt(rows[focusedIdx].dataset.taskId)); $event.preventDefault(); }">
 
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
   <div>
     <h1 class="text-2xl font-bold text-white">Tasks</h1>
-    <p class="text-sm text-gray-500 mt-0.5">{{ tasks|length }} task{{ tasks|length|pluralize }} total</p>
+    <p class="text-sm text-gray-500 mt-0.5"
+       x-text="visibleCount + (visibleCount === 1 ? ' task' : ' tasks') + (visibleCount < {{ tasks|length }} ? ' of {{ total_count }} total' : (totalCount > {{ tasks|length }} ? ' of {{ total_count }} total' : ' total'))">{{ total_count }} task{{ total_count|pluralize }} total</p>
   </div>
-  <a href="{% url 'dashboard:index' %}"
-     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
-            px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
-    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-    </svg>
-    New Task
-  </a>
+  <div class="flex items-center gap-2">
+    <button @click="selectMode = !selectMode; if (!selectMode) selected = []"
+            :class="selectMode ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400' : 'bg-gray-900 border-gray-800 text-gray-500 hover:text-gray-300'"
+            class="flex items-center gap-1.5 text-xs border px-3 py-2 rounded-xl transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+      </svg>
+      <span class="hidden sm:inline">Select</span>
+    </button>
+    <button @click="modalOpen = true"
+            class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+                   px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+      </svg>
+      <span class="hidden sm:inline">New Task</span>
+      <span class="sm:hidden">New</span>
+      <span class="text-indigo-300/60 text-xs font-mono ml-1 hidden sm:inline">N</span>
+    </button>
+  </div>
+</div>
+
+{# ── Bulk Actions Bar ── #}
+<div x-show="selectMode && selected.length > 0" x-cloak x-transition
+     x-data="{ confirmBulkDelete: false }"
+     class="mb-4 flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+  <span class="text-xs text-gray-400" x-text="selected.length + ' selected'"></span>
+  <button @click="selectAll()" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Select all visible</button>
+  <div class="flex-1"></div>
+  <form method="post" action="{% url 'tasks:bulk_action' %}" class="flex items-center gap-2"
+        id="bulk-form" x-data="{ submitting: false }"
+        :aria-busy="submitting"
+        hx-post="{% url 'tasks:bulk_action' %}"
+        hx-swap="none"
+        @htmx:before-request.camel="submitting = true"
+        @htmx:after-request.camel="submitting = false">
+    {% csrf_token %}
+    <template x-for="id in selected" :key="id">
+      <input type="hidden" name="task_ids" :value="id">
+    </template>
+    <button type="submit" name="action" value="trigger" :disabled="submitting"
+            class="text-xs bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 text-indigo-400 px-3 py-1.5 rounded-lg transition-colors
+                   disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5">
+      <svg x-show="submitting" x-cloak class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+      Run All
+    </button>
+    <button type="submit" name="action" value="cancel" :disabled="submitting"
+            class="text-xs bg-amber-600/15 hover:bg-amber-600/25 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg transition-colors
+                   disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5">
+      <svg x-show="submitting" x-cloak class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+      Cancel All
+    </button>
+    <button type="submit" name="action" value="scheduled" :disabled="submitting"
+            class="text-xs bg-blue-900/20 hover:bg-blue-900/30 border border-blue-700/30 text-blue-400 px-3 py-1.5 rounded-lg transition-colors
+                   disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5">
+      <svg x-show="submitting" x-cloak class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+      Schedule
+    </button>
+    <button type="submit" name="action" value="backlog" :disabled="submitting"
+            class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg transition-colors
+                   disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5">
+      <svg x-show="submitting" x-cloak class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+      Move to Backlog
+    </button>
+    {# Delete with inline confirm — no browser dialog #}
+    <div class="flex items-center gap-1" x-data="{ c: false }">
+      <button type="button" x-show="!c" @click="c = true" :disabled="submitting"
+              class="text-xs bg-red-900/20 hover:bg-red-900/30 border border-red-700/30 text-red-400 px-3 py-1.5 rounded-lg transition-colors
+                     disabled:opacity-50 disabled:pointer-events-none">
+        Delete
+      </button>
+      <template x-if="c">
+        <div class="flex items-center gap-1.5 bg-red-950/30 border border-red-800/40 rounded-lg px-2 py-1.5">
+          <span class="text-xs text-red-400">Delete <span x-text="selected.length"></span> tasks?</span>
+          <button type="submit" name="action" value="delete" :disabled="submitting"
+                  class="text-xs bg-red-700 hover:bg-red-600 text-white px-2 py-0.5 rounded font-medium transition-colors
+                         disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1">
+            <svg x-show="submitting" x-cloak class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            Yes
+          </button>
+          <button type="button" @click="c = false" :disabled="submitting"
+                  class="text-xs text-gray-500 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors
+                         disabled:opacity-50 disabled:pointer-events-none">
+            No
+          </button>
+        </div>
+      </template>
+    </div>
+  </form>
+  <button @click="selected = []; selectMode = false" class="text-xs text-gray-600 hover:text-gray-400 transition-colors ml-2">
+    Deselect
+  </button>
 </div>
 
 {# ── Search & Filter Bar ── #}
-<div class="flex items-center gap-3 mb-5">
+<div class="flex flex-wrap items-center gap-3 mb-5">
   <div class="relative flex-1 max-w-md">
     <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -48,6 +184,7 @@ x-effect="filteredTasks">
            class="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white
                   placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-colors">
     <button x-show="search" @click="search = ''" x-cloak
+            aria-label="Clear search"
             class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -55,38 +192,187 @@ x-effect="filteredTasks">
     </button>
   </div>
 
-  <div class="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1">
-    <template x-for="[val, label] in [
-      ['all', 'All'],
-      ['backlog', 'Backlog'],
-      ['scheduled', 'Scheduled'],
-      ['in_progress', 'Running'],
-      ['done', 'Done'],
-      ['failed', 'Failed'],
+  <div class="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 overflow-x-auto"
+       x-data="{ sc: { backlog: {{ status_counts.backlog }}, scheduled: {{ status_counts.scheduled }}, in_progress: {{ status_counts.in_progress }}, done: {{ status_counts.done }}, failed: {{ status_counts.failed }}, paused: {{ status_counts.paused }}, cancelled: {{ status_counts.cancelled }} } }">
+    <template x-for="[val, label, dot] in [
+      ['all', 'All', ''],
+      ['backlog', 'Backlog', 'bg-gray-500'],
+      ['scheduled', 'Scheduled', 'bg-blue-400'],
+      ['in_progress', 'Running', 'bg-amber-400'],
+      ['done', 'Done', 'bg-green-500'],
+      ['failed', 'Failed', 'bg-red-500'],
+      ['paused', 'Paused', 'bg-yellow-600'],
+      ['cancelled', 'Cancelled', 'bg-gray-600'],
     ]" :key="val">
       <button @click="statusFilter = val"
+              x-show="val === 'all' || sc[val] > 0"
               :class="statusFilter === val
                 ? 'bg-gray-800 text-white border-gray-700'
                 : 'text-gray-500 hover:text-gray-300 border-transparent'"
-              class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-all"
-              x-text="label">
+              class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap flex items-center gap-1.5">
+        <span x-show="dot" class="w-1.5 h-1.5 rounded-full shrink-0" :class="dot"></span>
+        <span x-text="label"></span>
+        <span x-show="val !== 'all' && sc[val] > 0"
+              x-text="sc[val]"
+              class="text-[10px] font-mono opacity-60 tabular-nums"></span>
+        <span x-show="val === 'all'"
+              class="text-[10px] font-mono opacity-60 tabular-nums">{{ total_count }}</span>
       </button>
     </template>
   </div>
+
+  {# Priority filter #}
+  <div class="relative" x-data="{ prioOpen: false }">
+    <button @click="prioOpen = !prioOpen" @click.outside="prioOpen = false"
+            :class="priorityFilter !== 'all' ? 'border-indigo-500/40 text-indigo-400' : 'border-gray-800 text-gray-500 hover:text-gray-300'"
+            class="flex items-center gap-1.5 text-xs bg-gray-900 border rounded-xl px-3 py-2.5 transition-colors whitespace-nowrap">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+      </svg>
+      <span x-text="priorityFilter === 'all' ? 'Priority' : {1:'Low',2:'Medium',3:'High',4:'Urgent'}[priorityFilter]">Priority</span>
+    </button>
+    <div x-show="prioOpen" x-transition x-cloak
+         class="absolute right-0 top-full mt-1 w-36 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-20 py-1 overflow-hidden">
+      <button @click="priorityFilter = 'all'; prioOpen = false"
+              :class="priorityFilter === 'all' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors">All priorities</button>
+      <button @click="priorityFilter = '4'; prioOpen = false"
+              :class="priorityFilter === '4' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Urgent</button>
+      <button @click="priorityFilter = '3'; prioOpen = false"
+              :class="priorityFilter === '3' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> High</button>
+      <button @click="priorityFilter = '2'; prioOpen = false"
+              :class="priorityFilter === '2' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Medium</button>
+      <button @click="priorityFilter = '1'; prioOpen = false"
+              :class="priorityFilter === '1' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span> Low</button>
+    </div>
+  </div>
+
+  {# Project filter #}
+  <div class="relative" x-data="{ projOpen: false }">
+    <button @click="projOpen = !projOpen" @click.outside="projOpen = false"
+            :class="projectFilter !== 'all' ? 'border-indigo-500/40 text-indigo-400' : 'border-gray-800 text-gray-500 hover:text-gray-300'"
+            class="flex items-center gap-1.5 text-xs bg-gray-900 border rounded-xl px-3 py-2.5 transition-colors whitespace-nowrap">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+      </svg>
+      <span x-text="projectFilter === 'all' ? 'Project' : projectFilter">Project</span>
+    </button>
+    <div x-show="projOpen" x-transition x-cloak
+         class="absolute right-0 top-full mt-1 w-44 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-20 py-1 overflow-hidden max-h-60 overflow-y-auto">
+      <button @click="projectFilter = 'all'; projOpen = false"
+              :class="projectFilter === 'all' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors">All projects</button>
+      {% for p in projects %}
+      <button @click="projectFilter = '{{ p.name|escapejs }}'; projOpen = false"
+              :class="projectFilter === '{{ p.name|escapejs }}' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'"
+              class="w-full text-left px-4 py-2 text-xs transition-colors truncate">{{ p.name }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Export #}
+  <a href="{% url 'tasks:export' %}{% if current_status and current_status != 'all' %}?status={{ current_status }}{% endif %}"
+     class="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-900 border border-gray-800
+            rounded-xl px-3 py-2.5 transition-colors whitespace-nowrap"
+     title="Download tasks as CSV">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    <span class="hidden sm:inline">Export</span>
+  </a>
+
+  {# Sort dropdown #}
+  <div class="relative" x-data="{ sortOpen: false }">
+    <button @click="sortOpen = !sortOpen" @click.outside="sortOpen = false"
+            class="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-900 border border-gray-800
+                   rounded-xl px-3 py-2.5 transition-colors whitespace-nowrap">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/>
+      </svg>
+      <span x-text="{newest:'Newest',oldest:'Oldest',priority:'Priority',title:'Title',updated:'Updated'}['{{ current_sort }}'] || 'Newest'"></span>
+    </button>
+    <div x-show="sortOpen" x-transition x-cloak
+         class="absolute right-0 top-full mt-1 w-36 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-20 py-1 overflow-hidden">
+      {% for key, label in sort_options %}
+      <a href="#"
+         @click.prevent="() => { const p = new URLSearchParams(location.search); p.set('sort', '{{ key }}'); window.location.href = '?' + p.toString(); }"
+         class="block px-4 py-2 text-xs {% if current_sort == key %}text-indigo-400 bg-gray-800{% else %}text-gray-400 hover:text-white hover:bg-gray-800/60{% endif %} transition-colors">
+        {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── Live update banner (appears when WebSocket reports status changes) ── #}
+<div x-data="{ stale: false, countdown: 0, _timer: null }"
+     @task-status-changed.window="if (!stale) {
+       stale = true;
+       countdown = 5;
+       clearInterval(_timer);
+       _timer = setInterval(() => {
+         countdown--;
+         if (countdown <= 0) { clearInterval(_timer); location.reload(); }
+       }, 1000);
+     }"
+     x-show="stale" x-cloak x-transition
+     class="mb-4 flex items-center gap-3 bg-indigo-950/40 border border-indigo-800/30 rounded-xl px-4 py-3">
+  <div class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse shrink-0"></div>
+  <span class="text-xs text-indigo-300 flex-1">Task statuses have changed — refreshing in <span x-text="countdown" class="font-mono tabular-nums"></span>s</span>
+  <button @click="clearInterval(_timer); location.reload()"
+          class="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-300
+                 px-3 py-1.5 rounded-lg transition-colors font-medium">
+    Refresh now
+  </button>
+  <button @click="stale = false; clearInterval(_timer)" class="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+          aria-label="Dismiss update notice">Dismiss</button>
 </div>
 
 {% if tasks %}
+{# No-results state when search/filter is active #}
+<div x-show="visibleCount === 0" x-cloak
+     class="flex flex-col items-center justify-center py-16 text-center bg-gray-900 border border-gray-800 rounded-2xl">
+  <svg class="w-8 h-8 text-gray-700 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+  </svg>
+  <p class="text-gray-500 text-sm">No tasks match your filter</p>
+  <button @click="search = ''; statusFilter = 'all'" class="mt-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+    Clear filters
+  </button>
+</div>
+
 <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
   {% for task in tasks %}
-  <div class="flex items-center gap-4 px-5 py-4
+  <div class="flex items-center gap-3 sm:gap-4 px-3 sm:px-5 py-3 sm:py-4
               {% if not forloop.last %}border-b border-gray-800{% endif %}
               hover:bg-gray-800/30 transition-colors group cursor-pointer"
+       :class="selected.includes({{ task.pk }}) ? 'bg-indigo-950/20' : ''"
        data-task-row
+       data-task-id="{{ task.pk }}"
        data-title="{{ task.title }}"
        data-status="{{ task.status }}"
-       data-project="{{ task.project.name }}"
+       data-project="{% if task.project %}{{ task.project.name }}{% endif %}"
        data-tags="{{ task.tags|join:',' }}"
-       onclick="window.location='{% url 'tasks:detail' task.pk %}'">
+       data-priority="{{ task.priority }}"
+       @click="selectMode ? toggleSelect({{ task.pk }}) : window.location='{% url 'tasks:detail' task.pk %}'">
+
+    {# Select checkbox #}
+    <div x-show="selectMode" x-cloak class="shrink-0" @click.stop="toggleSelect({{ task.pk }})">
+      <div class="w-4 h-4 rounded border transition-colors flex items-center justify-center"
+           :class="selected.includes({{ task.pk }}) ? 'bg-indigo-600 border-indigo-500' : 'border-gray-600 bg-gray-800'">
+        <svg x-show="selected.includes({{ task.pk }})" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+    </div>
 
     {# Priority bar #}
     <div class="w-1 h-9 rounded-full shrink-0
@@ -101,10 +387,14 @@ x-effect="filteredTasks">
       {% elif task.status == 'done' %}bg-green-500
       {% elif task.status == 'failed' %}bg-red-500
       {% elif task.status == 'scheduled' %}bg-blue-400
+      {% elif task.status == 'paused' %}bg-yellow-500
       {% else %}bg-gray-600{% endif %}"></div>
 
-    {# Title #}
-    <span class="text-sm font-medium text-white flex-1 truncate" title="{{ task.title }}">{{ task.title }}</span>
+    {# Title + prompt preview #}
+    <div class="flex-1 min-w-0">
+      <span class="text-sm font-medium text-white block truncate" title="{{ task.title }}">{{ task.title }}</span>
+      {% if task.prompt %}<p class="text-[11px] text-gray-600 truncate mt-0.5 hidden sm:block">{{ task.prompt|truncatechars:80 }}</p>{% endif %}
+    </div>
 
     {# Project chip #}
     {% if task.project %}
@@ -137,26 +427,193 @@ x-effect="filteredTasks">
     </span>
     {% endif %}
 
-    {# Status badge #}
-    <span class="text-xs px-2.5 py-1 rounded-lg font-medium shrink-0
-      {% if task.status == 'in_progress' %}bg-amber-900/30 border border-amber-700/30 text-amber-400
-      {% elif task.status == 'done' %}bg-green-900/30 border border-green-700/30 text-green-400
-      {% elif task.status == 'failed' %}bg-red-900/30 border border-red-700/30 text-red-400
-      {% elif task.status == 'scheduled' %}bg-blue-900/30 border border-blue-700/30 text-blue-400
-      {% elif task.status == 'cancelled' %}bg-gray-800 border border-gray-700 text-gray-500
-      {% else %}bg-gray-800 border border-gray-700 text-gray-500{% endif %}">
-      {{ task.get_status_display }}
-    </span>
+    {# Status badge — clickable dropdown for quick status change #}
+    <div class="relative shrink-0" x-data="{ open: false }" @click.stop>
+      <button @click="open = !open" @click.outside="open = false"
+              class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors
+        {% if task.status == 'in_progress' %}bg-amber-900/30 border border-amber-700/30 text-amber-400 hover:bg-amber-900/50
+        {% elif task.status == 'done' %}bg-green-900/30 border border-green-700/30 text-green-400 hover:bg-green-900/50
+        {% elif task.status == 'failed' %}bg-red-900/30 border border-red-700/30 text-red-400 hover:bg-red-900/50
+        {% elif task.status == 'scheduled' %}bg-blue-900/30 border border-blue-700/30 text-blue-400 hover:bg-blue-900/50
+        {% elif task.status == 'paused' %}bg-yellow-900/30 border border-yellow-700/30 text-yellow-400 hover:bg-yellow-900/50
+        {% elif task.status == 'cancelled' %}bg-gray-800 border border-gray-700 text-gray-500 hover:bg-gray-700
+        {% else %}bg-gray-800 border border-gray-700 text-gray-500 hover:bg-gray-700{% endif %}"
+              title="Click to change status">
+        {{ task.get_status_display }}
+        <svg class="w-2.5 h-2.5 inline ml-0.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div x-show="open" x-transition x-cloak
+           class="absolute right-0 top-full mt-1 w-36 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-30 py-1 overflow-hidden">
+        {% for value, label in status_choices %}
+        {% if value != task.status and value != 'in_progress' %}
+        <button hx-post="{% url 'tasks:set_status' task.pk %}" hx-vals='{"status": "{{ value }}"}'
+                hx-swap="none" hx-on::after-request="location.reload()"
+                @click="open = false"
+                class="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-800 transition-colors flex items-center gap-2
+                  {% if value == 'done' %}text-green-400{% elif value == 'failed' %}text-red-400{% elif value == 'scheduled' %}text-blue-400{% elif value == 'paused' %}text-yellow-400{% elif value == 'cancelled' %}text-gray-500{% else %}text-gray-400{% endif %}">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0
+            {% if value == 'done' %}bg-green-500{% elif value == 'failed' %}bg-red-500{% elif value == 'scheduled' %}bg-blue-400{% elif value == 'paused' %}bg-yellow-500{% elif value == 'cancelled' %}bg-gray-600{% else %}bg-gray-500{% endif %}"></span>
+          {{ label }}
+        </button>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
 
-    {# Age #}
-    <span class="text-xs text-gray-600 shrink-0 hidden sm:inline tabular-nums">{{ task.created_at|naturaltime }}</span>
+    {# Age / Running timer #}
+    {% if task.status == 'in_progress' %}
+    <span class="text-xs text-amber-400/70 shrink-0 hidden sm:inline tabular-nums font-mono"
+          x-data="{ elapsed: '', _iv: null }"
+          x-init="const s = new Date('{{ task.updated_at|date:'c' }}');
+                  function u() {
+                    const d = Math.floor((Date.now() - s.getTime()) / 1000);
+                    const h = Math.floor(d / 3600);
+                    const m = Math.floor((d % 3600) / 60);
+                    elapsed = (h > 0 ? h + 'h ' : '') + m + 'm';
+                  }
+                  u(); _iv = setInterval(u, 30000);
+                  $cleanup(() => clearInterval(_iv));"
+          x-text="elapsed"></span>
+    {% else %}
+    <span class="text-xs text-gray-600 shrink-0 hidden sm:inline tabular-nums" data-timeago="{{ task.created_at|date:'c' }}">{{ task.created_at|naturaltime }}</span>
+    {% endif %}
 
-    <svg class="w-4 h-4 text-gray-700 group-hover:text-gray-400 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    {# Quick actions — reveal on hover (always visible on mobile) #}
+    <div class="flex items-center gap-1.5 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150"
+         onclick="event.stopPropagation()">
+      {% if task.status == 'backlog' or task.status == 'scheduled' or task.status == 'failed' or task.status == 'done' or task.status == 'cancelled' or task.status == 'paused' %}
+      <button hx-post="{% url 'tasks:trigger' task.pk %}"
+              hx-indicator="this"
+              hx-on::after-request="location.reload()"
+              title="Run now"
+              class="flex items-center gap-1 text-xs text-indigo-400 bg-indigo-900/20 hover:bg-indigo-900/40 border border-indigo-800/30
+                     px-2.5 py-1 rounded-lg transition-colors [&.htmx-request]:opacity-70 [&.htmx-request]:pointer-events-none">
+        <svg class="w-3 h-3 [.htmx-request_&]:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+        </svg>
+        <svg class="w-3 h-3 animate-spin hidden [.htmx-request_&]:block" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Run
+      </button>
+      {% endif %}
+      {% if task.status == 'in_progress' %}
+      <button hx-post="{% url 'tasks:cancel' task.pk %}"
+              hx-indicator="this"
+              hx-on::after-request="location.reload()"
+              title="Cancel"
+              class="flex items-center gap-1 text-xs text-red-400 bg-red-900/15 hover:bg-red-900/30 border border-red-800/25
+                     px-2.5 py-1 rounded-lg transition-colors [&.htmx-request]:opacity-70 [&.htmx-request]:pointer-events-none">
+        <svg class="w-3 h-3 [.htmx-request_&]:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        <svg class="w-3 h-3 animate-spin hidden [.htmx-request_&]:block" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Cancel
+      </button>
+      {% endif %}
+    </div>
+
+    {# Context menu (three dots) #}
+    <div class="relative shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150"
+         x-data="{ menuOpen: false }" @click.stop>
+      <button @click="menuOpen = !menuOpen" @click.outside="menuOpen = false"
+              aria-label="Task actions" aria-haspopup="true"
+              class="w-6 h-6 flex items-center justify-center rounded-lg text-gray-700 hover:text-gray-400 hover:bg-gray-800 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+        </svg>
+      </button>
+      <div x-show="menuOpen" x-transition x-cloak
+           class="absolute right-0 top-full mt-1 w-32 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-30 py-1 overflow-hidden">
+        <form method="post" action="{% url 'tasks:duplicate' task.pk %}" class="contents">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Duplicate
+          </button>
+        </form>
+        <a href="{% url 'tasks:detail' task.pk %}"
+           class="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Edit
+        </a>
+        <div class="border-t border-gray-800 my-1"></div>
+        <button hx-post="{% url 'tasks:delete' task.pk %}"
+                hx-vals='{"permanent": "0"}'
+                hx-swap="none"
+                hx-on::after-request="location.reload()"
+                @click="menuOpen = false"
+                class="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Delete
+        </button>
+      </div>
+    </div>
+
+    <svg class="w-4 h-4 text-gray-700 group-hover:text-gray-500 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
     </svg>
   </div>
   {% endfor %}
 </div>
+
+{# ── Pagination ── #}
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-between mt-4 px-1">
+  <p class="text-xs text-gray-600">
+    Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ total_count }}
+  </p>
+  <div class="flex items-center gap-1">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if current_sort != 'newest' %}&sort={{ current_sort }}{% endif %}"
+       class="text-xs text-gray-400 hover:text-white bg-gray-900 border border-gray-800 hover:border-gray-700
+              px-3 py-1.5 rounded-lg transition-colors">
+      Previous
+    </a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+      <span class="text-xs text-white bg-indigo-600 px-3 py-1.5 rounded-lg font-medium">{{ num }}</span>
+      {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+      <a href="?page={{ num }}{% if current_sort != 'newest' %}&sort={{ current_sort }}{% endif %}"
+         class="text-xs text-gray-500 hover:text-white bg-gray-900 border border-gray-800 hover:border-gray-700
+                px-3 py-1.5 rounded-lg transition-colors">
+        {{ num }}
+      </a>
+      {% elif num == 1 or num == page_obj.paginator.num_pages %}
+      <a href="?page={{ num }}{% if current_sort != 'newest' %}&sort={{ current_sort }}{% endif %}"
+         class="text-xs text-gray-500 hover:text-white bg-gray-900 border border-gray-800 hover:border-gray-700
+                px-3 py-1.5 rounded-lg transition-colors">
+        {{ num }}
+      </a>
+      {% elif num == 2 or num == page_obj.paginator.num_pages|add:"-1" %}
+      <span class="text-xs text-gray-700 px-1">...</span>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if current_sort != 'newest' %}&sort={{ current_sort }}{% endif %}"
+       class="text-xs text-gray-400 hover:text-white bg-gray-900 border border-gray-800 hover:border-gray-700
+              px-3 py-1.5 rounded-lg transition-colors">
+      Next
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% else %}
 <div class="flex flex-col items-center justify-center py-24 text-center">
   <div class="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center mb-4">
@@ -166,11 +623,101 @@ x-effect="filteredTasks">
     </svg>
   </div>
   <p class="text-gray-500 mb-2">No tasks yet</p>
-  <a href="{% url 'dashboard:index' %}" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
-    Go to dashboard to create one
-  </a>
+  <button @click="modalOpen = true" class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors flex items-center gap-1.5">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    Create your first task
+  </button>
 </div>
 {% endif %}
+
+{# ══════ New Task Modal ══════ #}
+<div x-show="modalOpen"
+     x-cloak
+     style="display:none"
+     role="dialog" aria-modal="true" aria-label="New Task"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4">
+
+  {# Backdrop #}
+  <div @click="modalOpen = false"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="absolute inset-0 bg-black/70 backdrop-blur-sm">
+  </div>
+
+  {# Dialog #}
+  <div x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+       x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+       x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+       class="relative w-full max-w-2xl max-h-[90vh] flex flex-col
+              bg-gray-900 border border-gray-700/60 rounded-2xl shadow-2xl overflow-hidden">
+
+    {# Modal Header #}
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800 shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <h2 class="font-semibold text-white text-sm">New Task</h2>
+      </div>
+      <button @click="modalOpen = false"
+              class="text-gray-500 hover:text-white w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    {# Modal Form Body #}
+    <div class="overflow-y-auto flex-1 px-6 py-5" id="task-list-modal">
+      <form id="task-list-create-form"
+            hx-post="{% url 'tasks:create' %}"
+            hx-target="#task-list-modal"
+            hx-swap="innerHTML"
+            hx-indicator="#task-list-submit"
+            @keydown.ctrl.enter="$el.requestSubmit()"
+            @keydown.meta.enter="$el.requestSubmit()">
+        {% with form=task_form %}
+        {% include "tasks/partials/create_modal_body.html" %}
+        {% endwith %}
+      </form>
+    </div>
+
+    {# Modal Footer #}
+    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-800 shrink-0 bg-gray-900/50">
+      <span class="text-xs text-gray-600 font-mono">Ctrl+Enter to submit</span>
+      <div class="flex items-center gap-3">
+        <button type="button" @click="modalOpen = false"
+                class="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+          Cancel
+        </button>
+        <button id="task-list-submit" type="submit" form="task-list-create-form"
+                class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold
+                       px-5 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30
+                       [&.htmx-request]:opacity-60 [&.htmx-request]:cursor-wait [&.htmx-request]:pointer-events-none">
+          <svg class="w-4 h-4 htmx-indicator animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <svg class="w-4 h-4 htmx-indicator-content" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add Task
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </div>
 {% endblock %}

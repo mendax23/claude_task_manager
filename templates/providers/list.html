@@ -7,7 +7,7 @@
     <h1 class="text-2xl font-bold text-white">LLM Providers</h1>
     <p class="text-sm text-gray-500 mt-0.5">Manage AI backends for your tasks</p>
   </div>
-  <a href="/admin/providers/llmconfig/add/"
+  <a href="{% url 'providers:create' %}"
      class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
             px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -20,7 +20,11 @@
 {% if providers %}
 <div class="space-y-3">
   {% for provider in providers %}
-  <div class="group bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 flex items-center gap-5 transition-colors">
+  <div class="group bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 flex items-center gap-5 transition-colors"
+       x-data="{ confirmDelete: false, testState: '', testMsg: '' }"
+       data-provider-name="{{ provider.name|escapejs }}"
+       @agentqueue:success.window="if ($event.detail.message && $event.detail.message.startsWith($el.dataset.providerName)) { testState = 'ok'; testMsg = $event.detail.message; }"
+       @agentqueue:error.window="if ($event.detail.message && $event.detail.message.startsWith($el.dataset.providerName)) { testState = 'fail'; testMsg = $event.detail.message; }">
 
     <!-- Icon -->
     <div class="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center border
@@ -67,19 +71,69 @@
     <div class="flex items-center gap-2 shrink-0">
       <button hx-post="{% url 'providers:health_check' provider.pk %}"
               hx-swap="none"
-              class="text-xs border border-gray-700 hover:border-gray-500 text-gray-500 hover:text-gray-300
-                     px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              x-data="{ loading: false }"
+              @htmx:before-request.camel="loading = true"
+              @htmx:after-request.camel="loading = false"
+              class="text-xs border px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+              :class="{
+                'border-green-700/50 text-green-400 bg-green-900/15': testState === 'ok',
+                'border-red-700/50 text-red-400 bg-red-900/15': testState === 'fail',
+                'border-gray-700 hover:border-gray-500 text-gray-500 hover:text-gray-300': testState === '',
+                'opacity-60 cursor-wait': loading
+              }"
+              :title="testMsg || 'Test connection'">
+        <svg x-show="loading" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
         </svg>
-        Test
+        <template x-if="!loading && testState === ''">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </template>
+        <template x-if="!loading && testState === 'ok'">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                  d="M5 13l4 4L19 7"/>
+          </svg>
+        </template>
+        <template x-if="!loading && testState === 'fail'">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </template>
+        <span x-text="loading ? 'Testing...' : testState === 'ok' ? 'OK' : testState === 'fail' ? 'Failed' : 'Test'">Test</span>
       </button>
-      <a href="/admin/providers/llmconfig/{{ provider.pk }}/change/"
+      <a href="{% url 'providers:edit' provider.pk %}"
          class="text-xs border border-gray-700 hover:border-gray-500 text-gray-500 hover:text-gray-300
                 px-3 py-1.5 rounded-lg transition-colors">
         Edit
       </a>
+
+      {# Delete with inline confirm #}
+      <button x-show="!confirmDelete" @click="confirmDelete = true"
+              aria-label="Delete provider"
+              class="text-xs text-gray-700 hover:text-red-400 px-2 py-1.5 rounded-lg transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </button>
+      <div x-show="confirmDelete" x-transition class="flex items-center gap-1.5">
+        <span class="text-xs text-red-400">Remove?</span>
+        <form method="post" action="{% url 'providers:delete' provider.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="submit"
+                  class="text-xs bg-red-700 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition-colors font-medium">
+            Yes
+          </button>
+        </form>
+        <button @click="confirmDelete = false"
+                class="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors">
+          No
+        </button>
+      </div>
     </div>
   </div>
   {% endfor %}
@@ -93,8 +147,17 @@
     </svg>
   </div>
   <p class="text-gray-500 mb-2">No providers configured</p>
-  <p class="text-sm text-gray-600">
-    Run <code class="bg-gray-800 px-2 py-0.5 rounded-lg text-gray-400 text-xs">python manage.py setup_agentqueue</code> to get started
+  <p class="text-sm text-gray-600 mb-4">Add an AI backend to start running tasks</p>
+  <a href="{% url 'providers:create' %}"
+     class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium
+            px-4 py-2 rounded-xl transition-colors shadow-lg shadow-indigo-900/30">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+    </svg>
+    Add Provider
+  </a>
+  <p class="text-xs text-gray-700 mt-4">
+    or run <code class="bg-gray-800 px-2 py-0.5 rounded-lg text-gray-400 text-[10px]">python manage.py setup_agentqueue</code> for guided setup
   </p>
 </div>
 {% endif %}
