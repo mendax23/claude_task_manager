@@ -33,36 +33,79 @@
 <div class="grid grid-cols-4 gap-5" id="kanban-board">
   {% for column in columns %}
   <div class="flex flex-col">
+
     <!-- Column Header -->
-    <div class="flex items-center justify-between mb-4 px-1">
+    <div class="flex items-center justify-between mb-3 px-1">
       <div class="flex items-center gap-2.5">
-        <div class="w-2.5 h-2.5 rounded-full
-          {% if column.key == 'backlog' %}bg-slate-500
-          {% elif column.key == 'scheduled' %}bg-blue-500
-          {% elif column.key == 'in_progress' %}bg-amber-500 animate-pulse
-          {% else %}bg-green-500{% endif %}">
+
+        {# Icon badge per column #}
+        {% if column.key == 'backlog' %}
+        <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700/50 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
         </div>
-        <h2 class="text-sm font-bold text-gray-300 uppercase tracking-widest">
+        {% elif column.key == 'scheduled' %}
+        <div class="w-7 h-7 rounded-lg bg-blue-900/30 border border-blue-700/30 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        {% elif column.key == 'in_progress' %}
+        <div class="w-7 h-7 rounded-lg bg-amber-900/40 border border-amber-700/40 flex items-center justify-center" style="box-shadow: 0 0 12px rgba(245,158,11,.2);">
+          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        {% else %}
+        <div class="w-7 h-7 rounded-lg bg-green-900/30 border border-green-700/30 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        {% endif %}
+
+        <h2 class="text-sm font-bold uppercase tracking-widest
+          {% if column.key == 'in_progress' %}text-amber-400
+          {% elif column.key == 'scheduled' %}text-blue-400
+          {% elif column.key == 'done' %}text-green-400
+          {% else %}text-gray-400{% endif %}">
           {{ column.label }}
         </h2>
       </div>
-      <span class="text-sm text-gray-500 bg-gray-800 px-2.5 py-0.5 rounded-full font-semibold tabular-nums">
+
+      <span class="text-xs font-bold tabular-nums px-2.5 py-0.5 rounded-full
+        {% if column.key == 'in_progress' %}bg-amber-900/30 text-amber-400 border border-amber-700/30
+        {% elif column.key == 'scheduled' %}bg-blue-900/20 text-blue-400 border border-blue-800/30
+        {% elif column.key == 'done' %}bg-green-900/20 text-green-400 border border-green-800/30
+        {% else %}bg-gray-800 text-gray-500 border border-gray-700/40{% endif %}">
         {{ column.tasks|length }}
       </span>
     </div>
 
     <!-- Drop Zone -->
-    <div class="kanban-column flex-1 space-y-3 rounded-2xl p-2.5 min-h-[140px]
-                bg-gray-900/50 border border-gray-800/60
+    <div class="kanban-column flex-1 space-y-3 rounded-2xl p-2.5 min-h-[200px]
+                {% if column.key == 'in_progress' %}bg-amber-950/10 border border-amber-900/20
+                {% elif column.key == 'scheduled' %}bg-blue-950/10 border border-blue-900/15
+                {% elif column.key == 'done' %}bg-green-950/8 border border-green-900/12
+                {% else %}bg-gray-900/40 border border-gray-800/60{% endif %}
                 transition-colors duration-200"
          data-status="{{ column.key }}"
          id="column-{{ column.key }}">
       {% for task in column.tasks %}
         {% include "components/task_card.html" with task=task %}
       {% empty %}
-        <div class="flex items-center justify-center h-24 text-gray-700 text-sm select-none
-                    border-2 border-dashed border-gray-800/80 rounded-xl">
-          Drop here
+        <div class="flex flex-col items-center justify-center h-28 gap-2 text-sm select-none
+                    rounded-xl border-2 border-dashed
+                    {% if column.key == 'in_progress' %}border-amber-900/30 text-amber-900/70
+                    {% elif column.key == 'scheduled' %}border-blue-900/30 text-blue-900/70
+                    {% elif column.key == 'done' %}border-green-900/25 text-green-900/70
+                    {% else %}border-gray-800/70 text-gray-700{% endif %}">
+          {% if column.key == 'backlog' %}
+          <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <span class="text-xs">Create a task above</span>
+          {% elif column.key == 'in_progress' %}
+          <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <span class="text-xs">Idle — nothing running</span>
+          {% elif column.key == 'scheduled' %}
+          <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span class="text-xs">Nothing queued</span>
+          {% else %}
+          <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-xs">No completed tasks yet</span>
+          {% endif %}
         </div>
       {% endfor %}
     </div>
