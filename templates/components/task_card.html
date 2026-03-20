@@ -12,6 +12,8 @@
               bg-gray-800/80 border border-gray-700/40 hover:border-gray-600/50
             {% endif %}"
      data-task-id="{{ task.pk }}"
+     data-title="{{ task.title|lower }}"
+     data-tags="{{ task.tags|join:',' |lower }}"
      id="task-card-{{ task.pk }}"
      x-data="{
        get task() { return Alpine.store('agentqueue').activeTasks[{{ task.pk }}] || {} },

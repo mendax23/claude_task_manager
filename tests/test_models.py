@@ -76,3 +76,93 @@ def test_task_chain_advance(db, project):
     chain.advance()
     assert chain.current_step == 1
     assert chain.get_next_task() == t2
+
+
+# ── Validation Tests ──
+
+
+@pytest.mark.django_db
+def test_task_valid_cron_passes(task):
+    from apps.tasks.models import TaskType
+    task.task_type = TaskType.EVERGREEN
+    task.recurrence_rule = "0 9 * * 1"
+    task.clean()  # should not raise
+
+
+@pytest.mark.django_db
+def test_task_invalid_cron_raises(task):
+    from apps.tasks.models import TaskType
+    task.task_type = TaskType.EVERGREEN
+    task.recurrence_rule = "not a cron"
+    with pytest.raises(ValidationError) as exc_info:
+        task.clean()
+    assert "recurrence_rule" in exc_info.value.message_dict
+
+
+@pytest.mark.django_db
+def test_task_prompt_max_length(project):
+    from apps.tasks.models import Task, TaskType, TaskStatus
+    task = Task(
+        project=project,
+        title="Long prompt",
+        prompt="x" * 50001,
+        task_type=TaskType.ONE_SHOT,
+        status=TaskStatus.BACKLOG,
+    )
+    with pytest.raises(ValidationError):
+        task.full_clean()
+
+
+@pytest.mark.django_db
+def test_llm_config_api_key_required_for_anthropic(db):
+    from apps.providers.models import LLMConfig, ProviderType
+    cfg = LLMConfig(
+        name="anthropic-test",
+        provider_type=ProviderType.ANTHROPIC,
+        api_key="",
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        cfg.clean()
+    assert "api_key" in exc_info.value.message_dict
+
+
+@pytest.mark.django_db
+def test_llm_config_no_key_needed_for_claude_max(db):
+    from apps.providers.models import LLMConfig, ProviderType
+    cfg = LLMConfig(
+        name="claude-test",
+        provider_type=ProviderType.CLAUDE_MAX,
+        api_key="",
+    )
+    cfg.clean()  # should not raise
+
+
+@pytest.mark.django_db
+def test_llm_config_api_key_required_for_openrouter(db):
+    from apps.providers.models import LLMConfig, ProviderType
+    cfg = LLMConfig(
+        name="openrouter-test",
+        provider_type=ProviderType.OPENROUTER,
+        api_key="",
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        cfg.clean()
+    assert "api_key" in exc_info.value.message_dict
+
+
+@pytest.mark.django_db
+def test_task_mark_failed(task):
+    task.mark_failed()
+    assert task.status == "failed"
+
+
+@pytest.mark.django_db
+def test_task_reschedule_evergreen(task):
+    from apps.tasks.models import TaskType
+    task.task_type = TaskType.EVERGREEN
+    task.recurrence_rule = "0 9 * * *"
+    task.save()
+    task.reschedule_evergreen()
+    task.refresh_from_db()
+    assert task.next_run_at is not None
+    assert task.status == "scheduled"

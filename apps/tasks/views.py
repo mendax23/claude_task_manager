@@ -64,7 +64,8 @@ def task_trigger(request, pk):
     from apps.tasks.models import TaskRun
 
     triggerable = {
-        TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED, TaskStatus.CANCELLED,
+        TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED,
+        TaskStatus.CANCELLED, TaskStatus.DONE,
     }
 
     with transaction.atomic():

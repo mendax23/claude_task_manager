@@ -156,11 +156,13 @@ def test_task_trigger_already_running(client, task):
 
 
 @pytest.mark.django_db
-def test_task_trigger_done_task_rejected(client, task):
+def test_task_trigger_done_task_can_rerun(client, task):
     task.status = TaskStatus.DONE
     task.save()
     response = client.post(f"/tasks/{task.pk}/trigger/")
-    assert response.status_code == 400
+    assert response.status_code == 200
+    task.refresh_from_db()
+    assert task.status == TaskStatus.IN_PROGRESS
 
 
 @pytest.mark.django_db
