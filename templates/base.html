@@ -59,6 +59,10 @@
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    @keyframes toast-progress {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
     .running-card-glow { animation: card-glow-pulse 2.8s ease-in-out infinite; }
     .running-scanner   { animation: running-scanner 1.8s ease-in-out infinite; }
     .top-scanner       { animation: top-scanner 2.8s ease-in-out infinite; }
@@ -66,12 +70,51 @@
     .cursor-blink      { animation: cursor-blink 1.1s ease-in-out infinite; }
     .task-card         { animation: fadeSlideIn .25s ease-out; }
 
+    /* ── Micro-interactions ── */
+    @keyframes done-flash {
+      0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+      50%  { box-shadow: 0 0 0 6px rgba(34,197,94,.0); }
+      100% { box-shadow: none; }
+    }
+    .done-flash { animation: done-flash .6s ease-out; }
+
+    @keyframes triggered-flash {
+      0%   { background-color: rgba(99,102,241,.12); }
+      100% { background-color: transparent; }
+    }
+    .triggered-flash { animation: triggered-flash .8s ease-out; }
+
+    /* Button press feedback */
+    button:active:not(:disabled), a:active:not([disabled]) {
+      transform: scale(0.97);
+    }
+
+    /* Page entrance animation */
+    @keyframes page-enter {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    main > *:first-child { animation: page-enter .25s ease-out; }
+
+    /* Smooth command result highlight */
+    .command-result {
+      transition: background-color .1s ease;
+    }
+    .command-result.bg-gray-800\/80 {
+      background-color: rgba(31,41,55,.8);
+    }
+
     .sortable-ghost { opacity: 0.30; transform: scale(0.96); border: 2px dashed rgba(99,102,241,.4) !important; background: rgba(99,102,241,.05) !important; }
     .sortable-drag  { transform: rotate(1.5deg) scale(1.02); box-shadow: 0 28px 56px rgba(0,0,0,.6); }
 
     /* ── HTMX ── */
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline; }
+    /* When hx-indicator targets an element that itself has .htmx-indicator */
+    .htmx-request.htmx-indicator { display: inline; }
+    /* Hide static icon during requests so spinner takes its place */
+    .htmx-request .htmx-indicator-content { display: none; }
+    .htmx-request.htmx-indicator-content { display: none; }
 
     /* ── Global form inputs — catches all {{ field }} widgets ── */
     main input[type=text],
@@ -81,7 +124,8 @@
     main input[type=password],
     main input[type=search],
     main input[type=date],
-    main input[type=time] {
+    main input[type=time],
+    main input[type=datetime-local] {
       width: 100%;
       background: rgb(31,41,55);
       border: 1px solid rgba(75,85,99,.7);
@@ -125,8 +169,15 @@
       color: rgba(107,114,128,.7);
     }
 
+    /* ── Focus indicators for keyboard navigation ── */
+    button:focus-visible, a:focus-visible, [role="menuitem"]:focus-visible {
+      outline: 2px solid rgb(99,102,241);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
     /* ── Nav ── */
-    .nav-link { position: relative; display: flex; align-items: center; height: 100%; padding: 0 1rem; font-size: .85rem; font-weight: 500; transition: color .15s; }
+    .nav-link { position: relative; display: flex; align-items: center; height: 100%; padding: 0 1rem; font-size: .85rem; font-weight: 500; transition: color .15s; white-space: nowrap; flex-shrink: 0; }
     .nav-link:not(.nav-active) { color: rgba(156,163,175,1); }
     .nav-link:not(.nav-active):hover { color: white; }
     .nav-active { color: white; }
@@ -150,69 +201,234 @@
 <body class="bg-gray-950 text-gray-100 min-h-screen antialiased"
       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[110] focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium">Skip to content</a>
+
+  {# HTMX progress bar — animated on every request #}
+  <div id="htmx-progress-bar" class="fixed top-0 left-0 h-[2px] bg-indigo-500 z-[100] pointer-events-none"
+       style="width: 0%; opacity: 0; will-change: width, opacity;"></div>
+
   {% include "components/token_budget_bar.html" %}
 
   <!-- NAV -->
-  <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-20 flex items-stretch px-8" style="height: 62px;">
-    <!-- Logo -->
-    <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 mr-8 shrink-0">
-      <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
-           class="shadow-lg shadow-indigo-900/60" style="border-radius: 9px; flex-shrink:0;">
-        <defs>
-          <linearGradient id="aq-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#312E81"/>
-            <stop offset="1" stop-color="#6D28D9"/>
-          </linearGradient>
-          <filter id="aq-glow">
-            <feGaussianBlur stdDeviation="1.2" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        <rect width="32" height="32" rx="8" fill="url(#aq-bg)"/>
-        <line x1="6"  y1="12.5" x2="19" y2="12.5" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
-        <line x1="6"  y1="19.5" x2="19" y2="19.5" stroke="rgba(255,255,255,0.6)" stroke-width="2.4" stroke-linecap="round"/>
-        <polyline points="19,12.5 24.5,16 19,19.5" stroke="white" stroke-width="2.4"
-                  fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="24.5" cy="16" r="3" fill="#FBBF24" filter="url(#aq-glow)"/>
-        <circle cx="24.5" cy="16" r="1.5" fill="white"/>
-      </svg>
-      <span class="font-bold text-white" style="font-size: 1.05rem; letter-spacing: -.01em;">AgentQueue</span>
-    </a>
+  <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-20 px-4 sm:px-8 relative" style="height: 62px;"
+       x-data="{ mobileNav: false }" role="navigation" aria-label="Main navigation">
+    <div class="flex items-stretch h-full">
+      <!-- Logo -->
+      <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 mr-4 sm:mr-8 shrink-0">
+        <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+             class="shadow-lg shadow-indigo-900/60" style="border-radius: 9px; flex-shrink:0;">
+          <defs>
+            <linearGradient id="aq-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#312E81"/>
+              <stop offset="1" stop-color="#6D28D9"/>
+            </linearGradient>
+            <filter id="aq-glow">
+              <feGaussianBlur stdDeviation="1.2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <rect width="32" height="32" rx="8" fill="url(#aq-bg)"/>
+          <line x1="6"  y1="12.5" x2="19" y2="12.5" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+          <line x1="6"  y1="19.5" x2="19" y2="19.5" stroke="rgba(255,255,255,0.6)" stroke-width="2.4" stroke-linecap="round"/>
+          <polyline points="19,12.5 24.5,16 19,19.5" stroke="white" stroke-width="2.4"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24.5" cy="16" r="3" fill="#FBBF24" filter="url(#aq-glow)"/>
+          <circle cx="24.5" cy="16" r="1.5" fill="white"/>
+        </svg>
+        <span class="font-bold text-white hidden sm:inline" style="font-size: 1.05rem; letter-spacing: -.01em;">AgentQueue</span>
+      </a>
 
-    <!-- Links -->
-    <a href="{% url 'dashboard:index' %}"
-       class="nav-link {% if request.path == '/' %}nav-active{% endif %}">Dashboard</a>
-    <a href="{% url 'projects:list' %}"
-       class="nav-link {% if 'projects' in request.path %}nav-active{% endif %}">Projects</a>
-    <a href="{% url 'tasks:list' %}"
-       class="nav-link {% if 'tasks' in request.path %}nav-active{% endif %}">Tasks</a>
-    <a href="{% url 'scheduling:settings' %}"
-       class="nav-link {% if 'scheduling' in request.path %}nav-active{% endif %}">Schedule</a>
-    <a href="{% url 'providers:list' %}"
-       class="nav-link {% if 'providers' in request.path %}nav-active{% endif %}">Providers</a>
+      <!-- Desktop Links -->
+      <div class="hidden md:flex items-stretch">
+        <a href="{% url 'dashboard:index' %}"
+           class="nav-link {% if request.path == '/' %}nav-active{% endif %}">Dashboard</a>
+        <a href="{% url 'projects:list' %}"
+           class="nav-link {% if 'projects' in request.path %}nav-active{% endif %}">Projects</a>
+        <a href="{% url 'tasks:list' %}"
+           class="nav-link {% if 'tasks' in request.path %}nav-active{% endif %}">Tasks
+          <span x-show="Object.values($store.agentqueue.activeTasks).filter(t=>t.status==='in_progress').length > 0" x-cloak
+                class="ml-1 text-[10px] font-bold bg-amber-500 text-gray-900 rounded-full w-4 h-4 inline-flex items-center justify-center leading-none"
+                x-text="Object.values($store.agentqueue.activeTasks).filter(t=>t.status==='in_progress').length"></span>
+        </a>
+        <a href="{% url 'scheduling:settings' %}"
+           class="nav-link {% if 'scheduling' in request.path %}nav-active{% endif %}">Schedule</a>
+        <a href="{% url 'providers:list' %}"
+           class="nav-link {% if 'providers' in request.path %}nav-active{% endif %}">Providers</a>
+      </div>
 
-    <div class="flex-1"></div>
-    <span class="flex items-center gap-1 text-gray-700 mr-2 select-none" style="font-size: .65rem;">
-      Press <kbd class="bg-gray-800 border border-gray-700 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-mono">?</kbd> for shortcuts
-    </span>
-    <a href="/admin/" class="nav-link text-gray-600 hover:text-gray-400" style="font-size: .75rem;">
-      Admin ↗
-    </a>
+      <div class="flex-1"></div>
+
+      {# Connection status #}
+      <div class="flex items-center gap-1.5 mr-3"
+           :title="$store.agentqueue.wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'">
+        <div class="w-1.5 h-1.5 rounded-full transition-colors"
+             :class="$store.agentqueue.wsConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'"></div>
+        <span class="text-[10px] transition-colors hidden sm:inline"
+              :class="$store.agentqueue.wsConnected ? 'text-gray-700' : 'text-red-400'"
+              x-text="$store.agentqueue.wsConnected ? 'Live' : 'Offline'"></span>
+      </div>
+
+      <span class="hidden lg:flex items-center gap-1 text-gray-700 mr-2 select-none" style="font-size: .65rem;">
+        <kbd class="bg-gray-800 border border-gray-700 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-mono">⌘K</kbd> search
+        <span class="text-gray-800 mx-0.5">·</span>
+        <kbd class="bg-gray-800 border border-gray-700 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-mono">?</kbd> shortcuts
+      </span>
+      <a href="/admin/" class="nav-link text-gray-600 hover:text-gray-400 hidden sm:flex" style="font-size: .75rem;">
+        Admin ↗
+      </a>
+
+      <!-- Mobile hamburger -->
+      <button @click="mobileNav = !mobileNav" class="md:hidden flex items-center justify-center w-10 h-full text-gray-400 hover:text-white transition-colors"
+              aria-label="Toggle navigation menu">
+        <svg x-show="!mobileNav" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        <svg x-show="mobileNav" x-cloak class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile dropdown menu -->
+    <div x-show="mobileNav" x-cloak x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click.outside="mobileNav = false"
+         class="md:hidden absolute left-0 right-0 top-full bg-gray-900 border-b border-gray-800 shadow-2xl z-30 py-2 px-4">
+      <a href="{% url 'dashboard:index' %}"
+         class="block py-3 px-3 rounded-xl text-sm font-medium {% if request.path == '/' %}text-white bg-gray-800{% else %}text-gray-400 hover:text-white hover:bg-gray-800/50{% endif %} transition-colors">
+        Dashboard</a>
+      <a href="{% url 'projects:list' %}"
+         class="block py-3 px-3 rounded-xl text-sm font-medium {% if 'projects' in request.path %}text-white bg-gray-800{% else %}text-gray-400 hover:text-white hover:bg-gray-800/50{% endif %} transition-colors">
+        Projects</a>
+      <a href="{% url 'tasks:list' %}"
+         class="block py-3 px-3 rounded-xl text-sm font-medium {% if 'tasks' in request.path %}text-white bg-gray-800{% else %}text-gray-400 hover:text-white hover:bg-gray-800/50{% endif %} transition-colors flex items-center justify-between">
+        Tasks
+        <span x-show="Object.values($store.agentqueue.activeTasks).filter(t=>t.status==='in_progress').length > 0" x-cloak
+              class="text-[10px] font-bold bg-amber-500 text-gray-900 rounded-full w-5 h-5 inline-flex items-center justify-center"
+              x-text="Object.values($store.agentqueue.activeTasks).filter(t=>t.status==='in_progress').length"></span>
+      </a>
+      <a href="{% url 'scheduling:settings' %}"
+         class="block py-3 px-3 rounded-xl text-sm font-medium {% if 'scheduling' in request.path %}text-white bg-gray-800{% else %}text-gray-400 hover:text-white hover:bg-gray-800/50{% endif %} transition-colors">
+        Schedule</a>
+      <a href="{% url 'providers:list' %}"
+         class="block py-3 px-3 rounded-xl text-sm font-medium {% if 'providers' in request.path %}text-white bg-gray-800{% else %}text-gray-400 hover:text-white hover:bg-gray-800/50{% endif %} transition-colors">
+        Providers</a>
+      <div class="border-t border-gray-800 mt-2 pt-2">
+        <a href="/admin/" class="block py-2 px-3 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">Admin ↗</a>
+      </div>
+    </div>
   </nav>
 
-  <main class="px-6 py-8 w-full">
+  <main id="main-content" class="px-4 sm:px-6 py-6 sm:py-8 w-full" role="main">
     {% block content %}{% endblock %}
   </main>
 
+  <!-- Global Live Output Panel (available on all pages) -->
+  <div x-data="{ open: false, taskId: null, taskTitle: '' }"
+       @open-output.window="open = true; taskId = $event.detail.taskId; taskTitle = $event.detail.taskTitle || ''; subscribeToTaskOutput($event.detail.taskId)"
+       @keydown.escape.window="open = false">
+
+    <!-- Backdrop -->
+    <div x-show="open" x-cloak style="display:none"
+         @click="open = false"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/40 z-30 backdrop-blur-sm"></div>
+
+  <!-- Panel -->
+  <div id="global-live-output-panel"
+       x-show="open" x-cloak style="display:none"
+       role="dialog" aria-modal="true" aria-label="Live task output"
+       class="fixed inset-y-0 right-0 w-full sm:w-[520px] bg-gray-900 border-l border-gray-800 z-40 flex flex-col shadow-2xl"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 translate-x-4"
+       x-transition:enter-end="opacity-100 translate-x-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-x-0"
+       x-transition:leave-end="opacity-0 translate-x-4">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800 shrink-0">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-amber-900/30 border border-amber-700/30 flex items-center justify-center shrink-0">
+          <div class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+        </div>
+        <div class="min-w-0">
+          <h3 class="font-semibold text-white text-sm leading-tight truncate" x-text="taskTitle || 'Live Output'"></h3>
+          <p class="text-xs text-gray-600 mt-0.5 font-mono" x-text="taskId ? `agentqueue:task-${taskId}` : ''"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0 ml-3">
+        <button @click="copyTmuxCommand(taskId)"
+                class="text-xs bg-amber-600/15 hover:bg-amber-600/25 border border-amber-600/25 text-amber-400 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                aria-label="Copy tmux attach command">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          tmux
+        </button>
+        <button x-data="{ copied: false }"
+                @click="const log = $store.agentqueue.activeTasks[taskId]?.outputLog || ''; navigator.clipboard.writeText(log).then(() => { copied = true; setTimeout(() => copied = false, 1500); })"
+                class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                aria-label="Copy output to clipboard">
+          <svg x-show="!copied" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+          <svg x-show="copied" x-cloak class="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span x-text="copied ? 'Copied' : 'Copy'"></span>
+        </button>
+        <button @click="open = false"
+                aria-label="Close output panel"
+                class="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-gray-800/60 bg-gray-950/40 shrink-0">
+      <div class="w-2.5 h-2.5 rounded-full bg-red-600/50"></div>
+      <div class="w-2.5 h-2.5 rounded-full bg-amber-500/50"></div>
+      <div class="w-2.5 h-2.5 rounded-full bg-green-600/50"></div>
+      <span class="ml-2 text-[10px] text-gray-700 font-mono" x-text="taskId ? `task-${taskId}.log` : ''"></span>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-gray-950/60"
+         x-ref="globalOutputContainer"
+         x-init="$watch(() => $store.agentqueue.activeTasks[taskId]?.outputLog, () => $nextTick(() => { $el.scrollTop = $el.scrollHeight; }))">
+      <span class="text-gray-600 select-none">$ </span>
+      <pre class="inline text-green-400 whitespace-pre-wrap break-words"
+           x-text="$store.agentqueue.activeTasks[taskId]?.outputLog || ''"></pre>
+      <span x-show="!$store.agentqueue.activeTasks[taskId]?.outputLog" class="text-gray-600 italic flex items-center gap-2">
+        <svg class="w-3.5 h-3.5 animate-spin text-gray-700" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+        Connecting to task output...
+      </span>
+      <span class="text-green-600/60 cursor-blink"
+            x-show="$store.agentqueue.activeTasks[taskId]?.status === 'in_progress'">▊</span>
+    </div>
+  </div>
+  </div>{# /global live output panel wrapper #}
+
   <!-- Toasts -->
-  <div x-cloak class="fixed bottom-6 right-6 space-y-2 z-50" style="min-width: 320px;"
-       x-show="$store.agentqueue.notifications.length > 0">
-    <template x-for="(n, i) in $store.agentqueue.notifications" :key="i">
-      <div class="flex items-start gap-3 rounded-2xl px-5 py-4 shadow-2xl border"
+  <div x-cloak class="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 space-y-2 z-50 sm:min-w-[320px]"
+       x-show="$store.agentqueue.notifications.length > 0"
+       role="status" aria-live="polite" aria-label="Notifications">
+    <template x-for="(n, i) in $store.agentqueue.notifications" :key="n.id">
+      <div class="relative flex items-start gap-3 rounded-2xl px-5 py-4 shadow-2xl border overflow-hidden"
            :class="n.type==='error'
              ? 'bg-red-950/90 border-red-700/50'
              : n.type==='success'
              ? 'bg-green-950/80 border-green-700/40'
+             : n.type==='undo'
+             ? 'bg-amber-950/80 border-amber-700/40'
              : 'bg-gray-800 border-gray-700'"
            x-transition:enter="transition ease-out duration-250"
            x-transition:enter-start="opacity-0 translate-y-2"
@@ -220,13 +436,41 @@
            x-transition:leave="transition ease-in duration-150"
            x-transition:leave-start="opacity-100"
            x-transition:leave-end="opacity-0">
-        <div class="w-2 h-2 rounded-full mt-1.5 shrink-0"
-             :class="n.type==='error' ? 'bg-red-400' : n.type==='success' ? 'bg-green-400' : 'bg-indigo-400'"></div>
+        <div class="shrink-0 mt-0.5">
+          <template x-if="n.type==='success'">
+            <svg class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="animation: fadeSlideIn .3s ease-out">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </template>
+          <template x-if="n.type==='error'">
+            <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="animation: fadeSlideIn .3s ease-out">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+          </template>
+          <template x-if="n.type==='undo'">
+            <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="animation: fadeSlideIn .3s ease-out">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </template>
+          <template x-if="n.type!=='success' && n.type!=='error' && n.type!=='undo'">
+            <div class="w-2 h-2 rounded-full mt-1 bg-indigo-400"></div>
+          </template>
+        </div>
         <span class="text-sm flex-1 leading-snug"
-              :class="n.type==='error' ? 'text-red-200' : n.type==='success' ? 'text-green-200' : 'text-gray-200'"
+              :class="n.type==='error' ? 'text-red-200' : n.type==='success' ? 'text-green-200' : n.type==='undo' ? 'text-amber-200' : 'text-gray-200'"
               x-text="n.message"></span>
+        <template x-if="n.type==='undo' && n.undoUrl">
+          <button @click="fetch(n.undoUrl, { method: 'POST', headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}' } }).then(() => { $store.agentqueue.notify('Restored!', 'success'); location.reload(); }); $store.agentqueue.notifications.splice(i,1)"
+                  class="text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold px-3 py-1 rounded-lg transition-colors shrink-0 ml-1">
+            Undo
+          </button>
+        </template>
         <button @click="$store.agentqueue.notifications.splice(i,1)"
-                class="text-gray-600 hover:text-white transition-colors ml-2 mt-0.5 shrink-0">✕</button>
+                class="text-gray-600 hover:text-white transition-colors ml-2 mt-0.5 shrink-0"
+                aria-label="Dismiss notification">✕</button>
+        <div class="absolute bottom-0 left-0 h-[2px] rounded-b-2xl"
+             :class="n.type==='error' ? 'bg-red-600/40' : n.type==='success' ? 'bg-green-600/40' : n.type==='undo' ? 'bg-amber-600/40' : 'bg-indigo-600/40'"
+             :style="'animation: toast-progress ' + (n.type === 'undo' ? '8' : '6') + 's linear forwards;'"></div>
       </div>
     </template>
   </div>
@@ -238,7 +482,8 @@
        x-show="open"
        x-cloak
        style="display:none"
-       class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+       class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+       role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
     <div @click="open = false"
          x-transition:enter="transition ease-out duration-150"
          x-transition:enter-start="opacity-0"
@@ -251,13 +496,20 @@
          class="relative bg-gray-900 border border-gray-700/60 rounded-2xl shadow-2xl p-6 w-80">
       <div class="flex items-center justify-between mb-5">
         <h3 class="font-semibold text-white text-sm">Keyboard Shortcuts</h3>
-        <button @click="open = false" class="text-gray-600 hover:text-white transition-colors">
+        <button @click="open = false" aria-label="Close shortcuts" class="text-gray-600 hover:text-white transition-colors">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
       </div>
       <div class="space-y-2.5 text-xs">
+        <div class="flex items-center justify-between py-0.5">
+          <span class="text-gray-400">Command palette</span>
+          <div class="flex gap-0.5">
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">⌘</kbd>
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">K</kbd>
+          </div>
+        </div>
         <div class="flex items-center justify-between py-0.5">
           <span class="text-gray-400">New task</span>
           <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">N</kbd>
@@ -267,12 +519,49 @@
           <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">/</kbd>
         </div>
         <div class="flex items-center justify-between py-0.5">
+          <span class="text-gray-400">Navigate tasks</span>
+          <div class="flex gap-1">
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">J</kbd>
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">K</kbd>
+          </div>
+        </div>
+        <div class="flex items-center justify-between py-0.5">
+          <span class="text-gray-400">Open selected task</span>
+          <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">Enter</kbd>
+        </div>
+        <div class="flex items-center justify-between py-0.5">
+          <span class="text-gray-400">Run selected task</span>
+          <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">R</kbd>
+        </div>
+        <div class="flex items-center justify-between py-0.5">
+          <span class="text-gray-400">Toggle select (in select mode)</span>
+          <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">X</kbd>
+        </div>
+        <div class="flex items-center justify-between py-0.5">
           <span class="text-gray-400">Close / dismiss</span>
           <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">Esc</kbd>
         </div>
         <div class="flex items-center justify-between py-0.5">
           <span class="text-gray-400">This help panel</span>
           <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">?</kbd>
+        </div>
+        <div class="border-t border-gray-800 pt-2.5 mt-2.5">
+          <p class="text-gray-700 text-[10px] uppercase tracking-wider mb-2">Task detail</p>
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-400">Run task</span>
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">R</kbd>
+          </div>
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-400">Edit task</span>
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">E</kbd>
+          </div>
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-400">Previous / next task</span>
+            <div class="flex gap-1">
+              <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">J</kbd>
+              <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">K</kbd>
+            </div>
+          </div>
         </div>
         <div class="border-t border-gray-800 pt-2.5 mt-2.5">
           <p class="text-gray-700 text-[10px] uppercase tracking-wider mb-2">Navigate to</p>
@@ -284,12 +573,207 @@
             <span class="text-gray-400">Tasks list</span>
             <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">T</kbd>
           </div>
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-400">Projects</span>
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">P</kbd>
+          </div>
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-400">Schedule</span>
+            <kbd class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded-lg font-mono">S</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Command Palette (Ctrl+K / Cmd+K) -->
+  <div x-data="{
+         open: false,
+         query: '',
+         selectedIdx: -1,
+         get results() { return this.open ? [...this.$refs.resultsContainer?.querySelectorAll('.command-result') || []] : []; },
+         navigate(dir) {
+           const items = this.results;
+           if (!items.length) return;
+           this.selectedIdx = dir === 1
+             ? (this.selectedIdx + 1) % items.length
+             : (this.selectedIdx - 1 + items.length) % items.length;
+           items.forEach((el, i) => el.classList.toggle('bg-gray-800/80', i === this.selectedIdx));
+           items[this.selectedIdx]?.scrollIntoView({ block: 'nearest' });
+         },
+         go() {
+           const items = this.results;
+           if (this.selectedIdx >= 0 && items[this.selectedIdx]) {
+             items[this.selectedIdx].click();
+           }
+         },
+       }"
+       @keydown.window="if ((e=$event).key === 'k' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (!open) { _prevFocus = document.activeElement; open = true; $nextTick(() => $refs.cmdInput?.focus()); query = ''; selectedIdx = -1; } else { open = false; $nextTick(() => _prevFocus?.focus()); } }"
+       @keydown.escape.window="if (open) { open = false; $nextTick(() => _prevFocus?.focus()); $event.stopPropagation(); }"
+       x-init="_prevFocus = null">
+
+    <!-- Backdrop -->
+    <div x-show="open" x-cloak style="display:none"
+         @click="open = false"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]"></div>
+
+    <!-- Palette -->
+    <div x-show="open" x-cloak style="display:none"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 scale-95 -translate-y-4"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         role="dialog" aria-modal="true" aria-label="Command palette"
+         class="fixed inset-x-0 top-[15%] mx-auto w-[95%] max-w-lg z-[80]">
+      <div class="bg-gray-900 border border-gray-700/60 rounded-2xl shadow-2xl overflow-hidden"
+           @click.outside="open = false">
+        <!-- Search input -->
+        <div id="cmd-palette-header" class="flex items-center gap-3 px-5 py-3.5 border-b border-gray-800">
+          <svg id="cmd-search-icon" class="w-4 h-4 text-gray-500 shrink-0 htmx-indicator-content" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <svg class="w-4 h-4 text-indigo-400 shrink-0 animate-spin htmx-indicator" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+          <input x-ref="cmdInput"
+                 x-model="query"
+                 @keydown.arrow-down.prevent="navigate(1)"
+                 @keydown.arrow-up.prevent="navigate(-1)"
+                 @keydown.enter.prevent="go()"
+                 hx-get="{% url 'dashboard:command_search' %}"
+                 hx-trigger="input changed delay:200ms, search"
+                 hx-target="#command-results"
+                 hx-indicator="#cmd-palette-header"
+                 hx-swap="innerHTML"
+                 name="q"
+                 type="text"
+                 placeholder="Search tasks, projects..."
+                 autocomplete="off"
+                 class="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder-gray-600 p-0"
+                 style="box-shadow:none; border:none; padding:0;">
+          <kbd class="text-[10px] bg-gray-800 border border-gray-700 text-gray-500 px-1.5 py-0.5 rounded font-mono shrink-0">Esc</kbd>
+        </div>
+
+        <!-- Quick actions (shown when no query) -->
+        <div x-show="!query || query.length < 2" class="border-b border-gray-800">
+          <div class="px-3 pt-3 pb-1">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-600 px-2">Quick Actions</p>
+          </div>
+          <button @click="open = false; window.dispatchEvent(new CustomEvent('cmd:new-task'))"
+                  class="command-result w-full flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors text-left">
+            <div class="w-7 h-7 rounded-lg bg-indigo-900/40 border border-indigo-700/30 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+            </div>
+            <span class="text-sm text-indigo-300">New Task</span>
+            <kbd class="ml-auto text-[10px] bg-gray-800 border border-gray-700 text-gray-600 px-1.5 py-0.5 rounded font-mono">N</kbd>
+          </button>
+          <a href="{% url 'dashboard:index' %}" @click="open = false"
+             class="command-result flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors">
+            <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Go to Dashboard</span>
+            <kbd class="ml-auto text-[10px] bg-gray-800 border border-gray-700 text-gray-600 px-1.5 py-0.5 rounded font-mono">D</kbd>
+          </a>
+          <a href="{% url 'tasks:list' %}" @click="open = false"
+             class="command-result flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors">
+            <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">All Tasks</span>
+            <kbd class="ml-auto text-[10px] bg-gray-800 border border-gray-700 text-gray-600 px-1.5 py-0.5 rounded font-mono">T</kbd>
+          </a>
+          <a href="{% url 'projects:list' %}" @click="open = false"
+             class="command-result flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors">
+            <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Projects</span>
+            <kbd class="ml-auto text-[10px] bg-gray-800 border border-gray-700 text-gray-600 px-1.5 py-0.5 rounded font-mono">P</kbd>
+          </a>
+          <a href="{% url 'scheduling:settings' %}" @click="open = false"
+             class="command-result flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors">
+            <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Schedule Settings</span>
+            <kbd class="ml-auto text-[10px] bg-gray-800 border border-gray-700 text-gray-600 px-1.5 py-0.5 rounded font-mono">S</kbd>
+          </a>
+          <a href="{% url 'providers:list' %}" @click="open = false"
+             class="command-result flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors">
+            <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Providers</span>
+          </a>
+          <a href="{% url 'tasks:export' %}" @click="open = false"
+             class="command-result flex items-center gap-3 px-5 py-2.5 hover:bg-gray-800/80 transition-colors mb-1">
+            <div class="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Export Tasks (CSV)</span>
+          </a>
+        </div>
+
+        <!-- Search results -->
+        <div id="command-results" x-ref="resultsContainer"
+             class="max-h-[50vh] overflow-y-auto"
+             x-show="query && query.length >= 2"></div>
+
+        <!-- Footer -->
+        <div class="flex items-center gap-4 px-5 py-2.5 border-t border-gray-800 bg-gray-950/40">
+          <div class="flex items-center gap-1.5 text-[10px] text-gray-600">
+            <kbd class="bg-gray-800 border border-gray-700 px-1 py-px rounded font-mono">↑↓</kbd> navigate
+          </div>
+          <div class="flex items-center gap-1.5 text-[10px] text-gray-600">
+            <kbd class="bg-gray-800 border border-gray-700 px-1 py-px rounded font-mono">↵</kbd> open
+          </div>
+          <div class="flex items-center gap-1.5 text-[10px] text-gray-600">
+            <kbd class="bg-gray-800 border border-gray-700 px-1 py-px rounded font-mono">esc</kbd> close
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <script src="/static/js/app.js"></script>
+
+  <!-- cmd:new-task: triggered from command palette "New Task" action -->
+  <!-- dispatches the 'N' keydown so Alpine handlers on dashboard/task list pick it up -->
+  <script>
+    window.addEventListener('cmd:new-task', () => {
+      // Try to open modal on pages that have one (dashboard, task list)
+      const modalEl = document.querySelector('[x-data*="modalOpen"]');
+      if (modalEl) {
+        try {
+          const data = Alpine.$data(modalEl);
+          if (data && 'modalOpen' in data) { data.modalOpen = true; return; }
+        } catch (_) {}
+      }
+      // Fallback: navigate to create page
+      window.location = '{% url "tasks:create" %}';
+    });
+  </script>
 
   <!-- Dynamic tab title: show running task count -->
   <script>
@@ -302,6 +786,18 @@
       });
     });
   </script>
+  <!-- Bridge Django messages to Alpine.js toast system -->
+  {% if messages %}
+  <script>
+    document.addEventListener('alpine:initialized', () => {
+      const store = Alpine.store('agentqueue');
+      {% for message in messages %}
+      store.notify('{{ message|escapejs }}', '{{ message.tags|escapejs }}' === 'error' ? 'error' : '{{ message.tags|escapejs }}' === 'warning' ? 'error' : 'success');
+      {% endfor %}
+    });
+  </script>
+  {% endif %}
+
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>

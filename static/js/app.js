@@ -20,7 +20,9 @@ document.addEventListener('alpine:init', () => {
 
     init() {
       this._connect();
-      // Start polling fallback — only active when WS is down
+      // Poll immediately to populate initial task state (badge counts etc.)
+      // then continue every 10s as a WS fallback
+      this._poll();
       this._pollInterval = setInterval(() => this._poll(), 10000);
     },
 
