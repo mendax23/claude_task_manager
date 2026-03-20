@@ -33,6 +33,16 @@ document.addEventListener('alpine:init', () => {
         .then(data => {
           if (!data.tasks) return;
           let changed = false;
+
+          // Remove stale in_progress entries no longer in poll results
+          // (task completed/failed while WS was down)
+          for (const [id, info] of Object.entries(this.activeTasks)) {
+            if (info.status === 'in_progress' && !data.tasks[id]) {
+              delete this.activeTasks[id];
+              changed = true;
+            }
+          }
+
           for (const [id, info] of Object.entries(data.tasks)) {
             const existing = this.activeTasks[id] || {};
             const prev = existing.status;
@@ -96,9 +106,11 @@ document.addEventListener('alpine:init', () => {
             if (newStatus === 'done') {
               this.notify(`"${title}" completed`, 'success');
               this._desktopNotify('Task Completed', `"${title}" finished successfully.`);
+              this._playSound('success');
             } else if (newStatus === 'failed') {
               this.notify(`"${title}" failed`, 'error');
               this._desktopNotify('Task Failed', `"${title}" encountered an error.`);
+              this._playSound('error');
             } else if (newStatus === 'in_progress') {
               this.notify(`"${title}" started running`, 'info');
             }

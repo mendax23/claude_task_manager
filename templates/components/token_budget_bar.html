@@ -58,9 +58,9 @@
 
   <div class="flex items-center gap-2">
     <div class="w-2 h-2 rounded-full"
-         :class="$store.agentqueue.isIdle ? 'bg-amber-400' : 'bg-green-400 animate-pulse'"></div>
+         :class="$store.agentqueue.isIdle ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'"></div>
     <span class="font-semibold"
-          :class="$store.agentqueue.isIdle ? 'text-amber-400' : 'text-gray-500'"
+          :class="$store.agentqueue.isIdle ? 'text-emerald-400' : 'text-gray-500'"
           x-text="$store.agentqueue.isIdle ? 'Idle' : 'Active'">
       {% if is_idle %}Idle{% else %}Active{% endif %}
     </span>

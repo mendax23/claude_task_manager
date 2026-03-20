@@ -116,16 +116,16 @@
     .htmx-request .htmx-indicator-content { display: none; }
     .htmx-request.htmx-indicator-content { display: none; }
 
-    /* ── Global form inputs — catches all {{ field }} widgets ── */
-    main input[type=text],
-    main input[type=number],
-    main input[type=url],
-    main input[type=email],
-    main input[type=password],
-    main input[type=search],
-    main input[type=date],
-    main input[type=time],
-    main input[type=datetime-local] {
+    /* ── Global form inputs — only inside <form> so toolbar inputs aren't affected ── */
+    main form input[type=text],
+    main form input[type=number],
+    main form input[type=url],
+    main form input[type=email],
+    main form input[type=password],
+    main form input[type=search],
+    main form input[type=date],
+    main form input[type=time],
+    main form input[type=datetime-local] {
       width: 100%;
       background: rgb(31,41,55);
       border: 1px solid rgba(75,85,99,.7);
@@ -136,7 +136,7 @@
       outline: none;
       transition: border-color .15s, box-shadow .15s;
     }
-    main select {
+    main form select {
       width: 100%;
       background: rgb(31,41,55);
       border: 1px solid rgba(75,85,99,.7);
@@ -149,7 +149,7 @@
       cursor: pointer;
       transition: border-color .15s, box-shadow .15s;
     }
-    main textarea {
+    main form textarea {
       width: 100%;
       background: rgb(31,41,55);
       border: 1px solid rgba(75,85,99,.7);
@@ -161,11 +161,11 @@
       resize: vertical;
       transition: border-color .15s, box-shadow .15s;
     }
-    main input:focus, main select:focus, main textarea:focus {
+    main form input:focus, main form select:focus, main form textarea:focus {
       border-color: rgb(99,102,241);
       box-shadow: 0 0 0 3px rgba(99,102,241,.18);
     }
-    main input::placeholder, main textarea::placeholder {
+    main form input::placeholder, main form textarea::placeholder {
       color: rgba(107,114,128,.7);
     }
 
@@ -797,6 +797,21 @@
     });
   </script>
   {% endif %}
+
+  {# ── Scroll-to-top Button ── #}
+  <div x-data="{ visible: false }"
+       x-init="window.addEventListener('scroll', () => { visible = window.scrollY > 400; })"
+       x-show="visible" x-cloak x-transition.opacity
+       class="fixed bottom-6 right-6 z-40">
+    <button @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+            class="w-10 h-10 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full shadow-xl
+                   flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            title="Scroll to top" aria-label="Scroll to top">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
 
   {% block extra_scripts %}{% endblock %}
 </body>
