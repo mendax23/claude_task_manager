@@ -183,6 +183,54 @@ def test_advance_chains_marks_done_when_all_complete(project, llm_config):
     assert chain.status == TaskStatus.DONE
 
 
+# ── prune_idle_events ──
+
+
+@pytest.mark.django_db
+def test_prune_idle_events_deletes_old(db):
+    from apps.scheduling.celery_tasks import prune_idle_events
+    from apps.scheduling.models import IdleEvent
+
+    old = IdleEvent.objects.create(idle_ms=1000, is_idle=True, source="xprintidle")
+    IdleEvent.objects.filter(pk=old.pk).update(
+        created_at=timezone.now() - timedelta(days=10)
+    )
+    recent = IdleEvent.objects.create(idle_ms=500, is_idle=False, source="xprintidle")
+
+    prune_idle_events(days=7)
+
+    assert not IdleEvent.objects.filter(pk=old.pk).exists()
+    assert IdleEvent.objects.filter(pk=recent.pk).exists()
+
+
+@pytest.mark.django_db
+def test_prune_idle_events_custom_days(db):
+    from apps.scheduling.celery_tasks import prune_idle_events
+    from apps.scheduling.models import IdleEvent
+
+    event = IdleEvent.objects.create(idle_ms=100, is_idle=False, source="xprintidle")
+    IdleEvent.objects.filter(pk=event.pk).update(
+        created_at=timezone.now() - timedelta(days=3)
+    )
+
+    prune_idle_events(days=2)
+    assert not IdleEvent.objects.filter(pk=event.pk).exists()
+
+
+@pytest.mark.django_db
+def test_prune_idle_events_keeps_within_range(db):
+    from apps.scheduling.celery_tasks import prune_idle_events
+    from apps.scheduling.models import IdleEvent
+
+    event = IdleEvent.objects.create(idle_ms=100, is_idle=False, source="xprintidle")
+    IdleEvent.objects.filter(pk=event.pk).update(
+        created_at=timezone.now() - timedelta(days=3)
+    )
+
+    prune_idle_events(days=7)
+    assert IdleEvent.objects.filter(pk=event.pk).exists()
+
+
 @pytest.mark.django_db
 def test_advance_chains_skips_incomplete_step(project, llm_config):
     from apps.tasks.models import TaskChain, Task, TaskType, TaskStatus
