@@ -291,9 +291,9 @@ def test_task_duplicate(client, task):
 @pytest.mark.django_db
 def test_task_delete(client, task):
     pk = task.pk
-    # Default delete is soft-delete (sets status to cancelled)
+    # Default delete is soft-delete (sets status to cancelled), redirects for non-HTMX
     response = client.post(f"/tasks/{pk}/delete/")
-    assert response.status_code == 200
+    assert response.status_code == 302
     task.refresh_from_db()
     assert task.status == TaskStatus.CANCELLED
 
@@ -1334,9 +1334,23 @@ def test_duplicate_creates_copy(client, task):
 
 @pytest.mark.django_db
 def test_soft_delete_sets_cancelled(client, task):
-    """Soft delete (no permanent flag) sets status to cancelled."""
+    """Soft delete (no permanent flag) sets status to cancelled and redirects."""
     response = client.post(f"/tasks/{task.pk}/delete/")
+    assert response.status_code == 302
+    task.refresh_from_db()
+    assert task.status == "cancelled"
+
+
+@pytest.mark.django_db
+def test_soft_delete_htmx_returns_undo(client, task):
+    """HTMX soft-delete returns 200 with HX-Redirect and undo trigger."""
+    response = client.post(
+        f"/tasks/{task.pk}/delete/",
+        HTTP_HX_REQUEST="true",
+    )
     assert response.status_code == 200
+    assert response["HX-Redirect"] == "/"
+    assert "agentqueue:undo" in response["HX-Trigger"]
     task.refresh_from_db()
     assert task.status == "cancelled"
 

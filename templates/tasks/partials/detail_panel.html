@@ -157,10 +157,10 @@
       </button>
       <div x-show="confirmDelete" class="flex items-center gap-1" x-transition>
         <span class="text-xs text-red-400">Delete?</span>
-        <form method="post" action="{% url 'tasks:delete' task.pk %}" class="inline">
-          {% csrf_token %}
-          <button type="submit" class="text-xs bg-red-700 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition-colors">Yes</button>
-        </form>
+        <button hx-post="{% url 'tasks:delete' task.pk %}"
+                hx-swap="none"
+                @click="confirmDelete = false"
+                class="text-xs bg-red-700 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition-colors">Yes</button>
         <button @click="confirmDelete = false" class="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors">No</button>
       </div>
     </div>

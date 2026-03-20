@@ -108,11 +108,11 @@ document.addEventListener('alpine:init', () => {
               this._desktopNotify('Task Completed', `"${title}" finished successfully.`);
               this._playSound('success');
             } else if (newStatus === 'failed') {
-              this.notify(`"${title}" failed`, 'error');
+              this.notify(`"${title}" failed`, 'error', 8000);
               this._desktopNotify('Task Failed', `"${title}" encountered an error.`);
               this._playSound('error');
             } else if (newStatus === 'in_progress') {
-              this.notify(`"${title}" started running`, 'info');
+              this._notifyRun(msg.task_id, title);
             }
           }
 
@@ -212,6 +212,15 @@ document.addEventListener('alpine:init', () => {
         const idx = this.notifications.findIndex(n => n.id === id);
         if (idx !== -1) this.notifications.splice(idx, 1);
       }, ms);
+    },
+
+    _notifyRun(taskId, taskTitle) {
+      const id = Date.now() + Math.random();
+      this.notifications.push({ id, message: `"${taskTitle}" started running`, type: 'run', taskId, taskTitle });
+      setTimeout(() => {
+        const idx = this.notifications.findIndex(n => n.id === id);
+        if (idx !== -1) this.notifications.splice(idx, 1);
+      }, 8000);
     },
 
     _playSound(type) {
@@ -452,6 +461,27 @@ document.addEventListener('keydown', function (e) {
   // s = Schedule
   if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (!location.pathname.startsWith('/scheduling')) { window.location = '/scheduling/'; e.preventDefault(); }
+  }
+
+  // w = Open output for focused/running task
+  if (e.key === 'w' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // Try to get the focused task first, then first running task
+    const focused = document.querySelector('[data-task-row].ring-1');
+    const taskId = focused ? parseInt(focused.dataset.taskId) : null;
+    const taskInfo = taskId && Alpine.store('agentqueue').activeTasks[taskId];
+
+    // Use focused task if it's running, else find first running task
+    let watchId = null, watchTitle = '';
+    if (taskInfo && taskInfo.status === 'in_progress') {
+      watchId = taskId; watchTitle = taskInfo.title || '';
+    } else {
+      const running = Object.entries(Alpine.store('agentqueue').activeTasks).find(([,v]) => v.status === 'in_progress');
+      if (running) { watchId = parseInt(running[0]); watchTitle = running[1].title || ''; }
+    }
+    if (watchId) {
+      window.dispatchEvent(new CustomEvent('open-output', { detail: { taskId: watchId, taskTitle: watchTitle } }));
+      e.preventDefault();
+    }
   }
 
   // ? = Keyboard shortcuts panel is handled by Alpine in base.html

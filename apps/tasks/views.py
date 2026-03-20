@@ -112,8 +112,16 @@ def task_create(request):
 
 
 def task_detail(request, pk):
-    from django.db.models import Sum, Avg, F
-    task = get_object_or_404(Task.objects.select_related("project", "llm_config"), pk=pk)
+    from django.db.models import Sum, Avg, F, OuterRef, Subquery
+    from apps.tasks.models import TaskRun as _TaskRun
+    _done_tokens_sq = _TaskRun.objects.filter(
+        task=OuterRef("pk"), status=TaskStatus.DONE
+    ).order_by("-started_at").values("tokens_used")[:1]
+    task = get_object_or_404(
+        Task.objects.select_related("project", "llm_config")
+        .annotate(last_done_tokens=Subquery(_done_tokens_sq)),
+        pk=pk,
+    )
     partial = request.GET.get("partial")
     if partial == "card":
         return render(request, "components/task_card.html", {"task": task})
@@ -228,7 +236,8 @@ def task_cancel(request, pk):
             next_status = TaskStatus.BACKLOG
 
         task.status = next_status
-        task.save(update_fields=["status", "updated_at"])
+        task.tmux_session = ""
+        task.save(update_fields=["status", "tmux_session", "updated_at"])
 
     response = render(request, "components/task_card.html", {"task": task})
     response["HX-Trigger"] = json.dumps({"agentqueue:success": {"message": f"\"{task.title}\" cancelled."}})
@@ -316,12 +325,14 @@ def task_delete(request, pk):
     # Soft-delete: mark as cancelled so user can undo
     task.status = TaskStatus.CANCELLED
     task.save(update_fields=["status", "updated_at"])
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = "/"
-    response["HX-Trigger"] = json.dumps({
-        "agentqueue:undo": {"message": f'"{task.title}" deleted', "undo_url": f"/tasks/{task.pk}/restore/"}
-    })
-    return response
+    if request.headers.get("HX-Request"):
+        response = HttpResponse(status=200)
+        response["HX-Redirect"] = "/"
+        response["HX-Trigger"] = json.dumps({
+            "agentqueue:undo": {"message": f'"{task.title}" deleted', "undo_url": f"/tasks/{task.pk}/restore/"}
+        })
+        return response
+    return redirect("dashboard:index")
 
 
 @require_POST

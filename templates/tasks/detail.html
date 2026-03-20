@@ -30,6 +30,7 @@
         </button>
         <form method="post" action="{% url 'tasks:delete' task.pk %}" class="inline">
           {% csrf_token %}
+          <input type="hidden" name="permanent" value="1">
           <button type="submit"
                   class="text-sm bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors font-medium">
             Delete

@@ -182,6 +182,7 @@ Pro Provider: Wochen-Limit, Reset-Tag/-Uhrzeit, Budget-Kurve, verbrauchte Tokens
 | `schedule_evergreen_tasks` | 5 min | Fällige Evergreen-Tasks auf Scheduled setzen |
 | `advance_chains` | 30 s | Chains vorantreiben, nächsten Schritt starten |
 | `check_budget_reset` | 1 h | Wochen-Budget zurücksetzen falls fällig |
+| `prune_idle_events` | täglich 3 Uhr | IdleEvents älter als 7 Tage löschen |
 
 ---
 

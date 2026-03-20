@@ -132,7 +132,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
       {% if task.completed_at %}<span>{{ task.completed_at|naturaltime }}</span>{% else %}<span>Completed</span>{% endif %}
-      {% if task.result_summary %}<span class="text-gray-600 truncate">· {{ task.result_summary }}</span>{% endif %}
+      {% if task.result_summary %}<span class="text-gray-600 truncate flex-1">· {{ task.result_summary|truncatechars:40 }}</span>{% endif %}
+      {% if task.last_done_tokens %}<span class="text-gray-700 font-mono ml-auto shrink-0">{{ task.last_done_tokens|floatformat:"0" }}t</span>{% endif %}
     </div>
     {% endif %}
 
@@ -208,6 +209,7 @@
       {% elif task.status != 'done' %}
         <button hx-post="{% url 'tasks:trigger' task.pk %}"
                 hx-target="#task-card-{{ task.pk }}" hx-swap="outerHTML"
+                hx-on::after-request="if(event.detail.successful){setTimeout(()=>window.dispatchEvent(new CustomEvent('open-output',{detail:{taskId:{{ task.pk }},taskTitle:'{{ task.title|escapejs }}'}})),150)}"
                 onclick="event.stopPropagation()"
                 title="Run now" aria-label="Run task now"
                 class="run-btn-{{ task.pk }} w-7 h-7 flex items-center justify-center rounded-lg text-indigo-500/70 hover:text-indigo-300 hover:bg-indigo-900/25 transition-colors">
@@ -232,6 +234,7 @@
       {% else %}
         <button hx-post="{% url 'tasks:trigger' task.pk %}"
                 hx-target="#task-card-{{ task.pk }}" hx-swap="outerHTML"
+                hx-on::after-request="if(event.detail.successful){setTimeout(()=>window.dispatchEvent(new CustomEvent('open-output',{detail:{taskId:{{ task.pk }},taskTitle:'{{ task.title|escapejs }}'}})),150)}"
                 onclick="event.stopPropagation()"
                 title="Run again" aria-label="Run task again"
                 class="w-7 h-7 flex items-center justify-center rounded-lg text-green-700/60 hover:text-green-400 hover:bg-green-900/20 transition-colors">

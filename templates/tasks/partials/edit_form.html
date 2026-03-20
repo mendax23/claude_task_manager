@@ -126,12 +126,20 @@
       </div>
 
       {# Prompt #}
-      <div>
-        <label class="block text-xs text-gray-500 mb-1.5">Prompt</label>
+      <div x-data="{ charCount: {{ task.prompt|length }} }">
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-xs text-gray-500">Prompt</label>
+          <span class="text-[10px] tabular-nums"
+                :class="charCount > 45000 ? 'text-red-400' : charCount > 30000 ? 'text-yellow-500' : 'text-gray-700'"
+                x-text="`${charCount.toLocaleString()} / 50,000`"></span>
+        </div>
         <textarea name="prompt" rows="6"
+                  @input="charCount = $el.value.length; $el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'"
+                  x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'; })"
                   class="w-full bg-gray-800/80 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white
                          focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40
-                         transition-colors resize-none leading-relaxed">{{ task.prompt }}</textarea>
+                         transition-colors resize-none leading-relaxed"
+                  style="min-height: 120px; max-height: 400px;">{{ task.prompt }}</textarea>
       </div>
 
       {# Recurrence (evergreen only) #}

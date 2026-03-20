@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Q, Sum
+from django.db.models import OuterRef, Q, Subquery, Sum
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -20,10 +20,15 @@ KANBAN_COLUMNS = [
     {"key": TaskStatus.DONE, "label": "Done", "icon": "check"},
 ]
 
+_done_tokens_sq = TaskRun.objects.filter(
+    task=OuterRef("pk"), status=TaskStatus.DONE
+).order_by("-started_at").values("tokens_used")[:1]
+
 
 def dashboard(request):
     tasks = list(
         Task.objects.select_related("project", "llm_config")
+        .annotate(last_done_tokens=Subquery(_done_tokens_sq))
         .exclude(status=TaskStatus.CANCELLED)
         .order_by("kanban_order", "-priority", "created_at")
     )

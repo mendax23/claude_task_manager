@@ -102,7 +102,7 @@ class TaskRunner:
                             TaskRunner().run(next_task, next_run)
                         threading.Thread(target=_run_next, daemon=True).start()
 
-            self._broadcast_status(task, "done")
+            self._broadcast_status(task, "done", {"tokens_used": tokens_used})
 
         except Exception as e:
             logger.exception("Task %s failed: %s", task.pk, e)
@@ -133,16 +133,19 @@ class TaskRunner:
                 tokens_used = chunk.tokens_used
         return "".join(full_output), tokens_used
 
-    def _broadcast_status(self, task: Task, status: str):
+    def _broadcast_status(self, task: Task, status: str, extra: dict = None):
         if not self.channel_layer:
             return
         try:
+            data = {"status": status, "title": task.title}
+            if extra:
+                data.update(extra)
             async_to_sync(self.channel_layer.group_send)(
                 "dashboard",
                 {
                     "type": "task_update",
                     "task_id": task.pk,
-                    "data": {"status": status, "title": task.title},
+                    "data": data,
                 },
             )
         except Exception as e:
