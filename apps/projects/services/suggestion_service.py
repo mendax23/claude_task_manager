@@ -53,6 +53,7 @@ class SuggestionService:
             max_tokens=2048,
             temperature=0.7,
             stream=False,
+            cwd=self.project.repo_path or None,
         )
 
         response = await self.provider.complete(request)

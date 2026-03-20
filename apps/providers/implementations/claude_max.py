@@ -41,12 +41,15 @@ class ClaudeMaxProvider(LLMProvider):
         if self.config.model_name:
             cmd += ["--model", self.config.model_name]
 
+        cwd = request.cwd or None
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
             )
         except FileNotFoundError:
             raise ProviderError(
@@ -75,7 +78,24 @@ class ClaudeMaxProvider(LLMProvider):
                 continue
 
             event_type = event.get("type", "")
-            if event_type == "content_block_delta":
+
+            # Claude Code CLI stream-json format
+            if event_type == "assistant":
+                msg = event.get("message", {})
+                for block in msg.get("content", []):
+                    if block.get("type") == "text":
+                        text = block.get("text", "")
+                        if text:
+                            yield LLMChunk(text=text)
+                total_tokens = msg.get("usage", {}).get("output_tokens", total_tokens)
+            elif event_type == "result":
+                total_tokens = event.get("usage", {}).get("output_tokens", total_tokens)
+                if event.get("is_error"):
+                    raise ProviderError(f"Claude CLI error: {event.get('result', 'unknown error')}")
+                yield LLMChunk(text="", is_final=True, tokens_used=total_tokens)
+
+            # Raw Anthropic API SSE format (fallback)
+            elif event_type == "content_block_delta":
                 text = event.get("delta", {}).get("text", "")
                 if text:
                     yield LLMChunk(text=text)

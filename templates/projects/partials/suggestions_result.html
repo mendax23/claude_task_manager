@@ -1,0 +1,41 @@
+<div class="space-y-3">
+  <div class="flex items-center gap-2 mb-4">
+    <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">AI Suggestions</p>
+    <span class="text-xs text-gray-700">{{ suggestions|length }} tasks</span>
+  </div>
+
+  {% for s in suggestions %}
+  <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-start gap-4 group"
+       id="suggestion-{{ forloop.counter }}">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap mb-1">
+        <p class="text-sm font-medium text-white">{{ s.title }}</p>
+        <span class="text-[10px] px-1.5 py-px rounded font-medium
+          {% if s.priority == 4 %}bg-red-900/40 text-red-400
+          {% elif s.priority == 3 %}bg-amber-900/40 text-amber-400
+          {% elif s.priority == 2 %}bg-sky-900/40 text-sky-400
+          {% else %}bg-gray-800 text-gray-500{% endif %}">
+          P{{ s.priority }}
+        </span>
+        {% if s.task_type == 'evergreen' %}
+        <span class="text-[10px] px-1.5 py-px rounded bg-emerald-900/30 text-emerald-400">↺ evergreen</span>
+        {% endif %}
+        {% for tag in s.tags|slice:":3" %}
+        <span class="text-[10px] text-gray-600 bg-gray-800 px-1.5 py-px rounded">#{{ tag }}</span>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">{{ s.prompt }}</p>
+    </div>
+    <button hx-post="{% url 'projects:suggest_create' project.slug %}"
+            hx-target="#suggestion-{{ forloop.counter }}"
+            hx-swap="outerHTML"
+            hx-vals='{"title": "{{ s.title|escapejs }}", "prompt": "{{ s.prompt|escapejs }}", "task_type": "{{ s.task_type }}", "priority": "{{ s.priority }}", "tags": "{{ s.tags|default:\"[]\" }}"}'
+            class="shrink-0 text-xs bg-indigo-600/10 hover:bg-indigo-600/25 border border-indigo-500/30
+                   hover:border-indigo-500/60 text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-lg
+                   transition-all whitespace-nowrap">
+      + Add
+    </button>
+  </div>
+  {% endfor %}
+</div>

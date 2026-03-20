@@ -23,6 +23,15 @@ function initKanban() {
 
         if (!taskId || !newStatus) return;
 
+        // Dragged OUT of In Progress → show cancel warning, defer the reorder
+        if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+          const title = evt.item.querySelector('p')?.textContent?.trim() || '';
+          window.dispatchEvent(new CustomEvent('kanban:cancel-confirm', {
+            detail: { taskId, taskTitle: title, nextStatus: newStatus, newOrder }
+          }));
+          return;
+        }
+
         htmx.ajax('POST', '/tasks/reorder/', {
           values: {
             task_id: taskId,
@@ -55,5 +64,23 @@ function triggerTask(taskId) {
     target: `#task-card-${taskId}`,
     swap: 'outerHTML',
     values: { csrfmiddlewaretoken: getCsrfToken() },
+  });
+}
+
+function cancelAndMove(taskId, nextStatus, newOrder) {
+  htmx.ajax('POST', `/tasks/${taskId}/cancel/`, {
+    target: `#task-card-${taskId}`,
+    swap: 'outerHTML',
+    values: { csrfmiddlewaretoken: getCsrfToken(), next_status: nextStatus },
+  }).then(() => {
+    // Update kanban order after cancel
+    htmx.ajax('POST', '/tasks/reorder/', {
+      values: {
+        task_id: taskId,
+        new_status: nextStatus,
+        new_order: newOrder,
+        csrfmiddlewaretoken: getCsrfToken(),
+      }
+    });
   });
 }

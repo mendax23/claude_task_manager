@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AgentQueue{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
 
   <script>
     tailwind.config = {
@@ -154,11 +155,26 @@
   <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-20 flex items-stretch px-8" style="height: 62px;">
     <!-- Logo -->
     <a href="{% url 'dashboard:index' %}" class="flex items-center gap-3 mr-8 shrink-0">
-      <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-900/60">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-        </svg>
-      </div>
+      <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+           class="shadow-lg shadow-indigo-900/60" style="border-radius: 9px; flex-shrink:0;">
+        <defs>
+          <linearGradient id="aq-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#312E81"/>
+            <stop offset="1" stop-color="#6D28D9"/>
+          </linearGradient>
+          <filter id="aq-glow">
+            <feGaussianBlur stdDeviation="1.2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect width="32" height="32" rx="8" fill="url(#aq-bg)"/>
+        <line x1="6"  y1="12.5" x2="19" y2="12.5" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+        <line x1="6"  y1="19.5" x2="19" y2="19.5" stroke="rgba(255,255,255,0.6)" stroke-width="2.4" stroke-linecap="round"/>
+        <polyline points="19,12.5 24.5,16 19,19.5" stroke="white" stroke-width="2.4"
+                  fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="24.5" cy="16" r="3" fill="#FBBF24" filter="url(#aq-glow)"/>
+        <circle cx="24.5" cy="16" r="1.5" fill="white"/>
+      </svg>
       <span class="font-bold text-white" style="font-size: 1.05rem; letter-spacing: -.01em;">AgentQueue</span>
     </a>
 

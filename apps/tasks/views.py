@@ -66,7 +66,7 @@ def task_trigger(request, pk):
         Task.objects.select_related("project", "llm_config"), pk=pk
     )
 
-    triggerable = {TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED, TaskStatus.IN_PROGRESS}
+    triggerable = {TaskStatus.BACKLOG, TaskStatus.SCHEDULED, TaskStatus.FAILED, TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED}
     if task.status not in triggerable:
         return _error_response(f"Can't run a task that is already '{task.get_status_display()}'.")
 
@@ -93,6 +93,8 @@ def task_trigger(request, pk):
         from apps.tasks.services.task_runner import TaskRunner
 
         def _run():
+            from django.db import close_old_connections
+            close_old_connections()
             TaskRunner().run(task, run)
 
         threading.Thread(target=_run, daemon=True).start()
@@ -116,10 +118,10 @@ def task_cancel(request, pk):
         run.status = TaskStatus.CANCELLED
         run.save(update_fields=["status"])
 
-    # Allow caller to specify the resulting status (e.g. 'backlog' when dragging back)
-    next_status = request.POST.get("next_status", TaskStatus.CANCELLED)
+    # Default to backlog so cancelled tasks can be re-run immediately
+    next_status = request.POST.get("next_status", TaskStatus.BACKLOG)
     if next_status not in (TaskStatus.CANCELLED, TaskStatus.BACKLOG, TaskStatus.SCHEDULED):
-        next_status = TaskStatus.CANCELLED
+        next_status = TaskStatus.BACKLOG
 
     task.status = next_status
     task.save(update_fields=["status", "updated_at"])

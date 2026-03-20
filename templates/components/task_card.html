@@ -33,7 +33,7 @@
        }
      }"
      hx-get="{% url 'tasks:detail' task.pk %}?partial=card"
-     hx-trigger="server:update"
+     hx-trigger="server:update{% if task.status == 'in_progress' %}, every 4s{% endif %}"
      hx-target="#task-card-{{ task.pk }}"
      hx-swap="outerHTML"
      @click="$dispatch('open-task-detail', { taskId: {{ task.pk }} })">

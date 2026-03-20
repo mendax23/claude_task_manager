@@ -21,6 +21,7 @@ class LLMRequest:
     temperature: float = 0.7
     system: str = ""
     stream: bool = True
+    cwd: str = ""  # working directory for subprocess providers (claude_max)
     extra: dict = field(default_factory=dict)
 
 
