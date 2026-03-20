@@ -116,7 +116,12 @@ def task_cancel(request, pk):
         run.status = TaskStatus.CANCELLED
         run.save(update_fields=["status"])
 
-    task.status = TaskStatus.CANCELLED
+    # Allow caller to specify the resulting status (e.g. 'backlog' when dragging back)
+    next_status = request.POST.get("next_status", TaskStatus.CANCELLED)
+    if next_status not in (TaskStatus.CANCELLED, TaskStatus.BACKLOG, TaskStatus.SCHEDULED):
+        next_status = TaskStatus.CANCELLED
+
+    task.status = next_status
     task.save(update_fields=["status", "updated_at"])
 
     response = render(request, "tasks/partials/task_card.html", {"task": task})
