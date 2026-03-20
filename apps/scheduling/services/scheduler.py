@@ -85,10 +85,18 @@ class SmartScheduler:
         )
 
     def _within_allowed_hours(self, schedule) -> bool:
+        now = timezone.localtime()
+        now_hour = now.hour
+        now_weekday = now.weekday()  # 0=Monday, 6=Sunday
+
+        # Check allowed days bitmask (bit 0 = Monday, bit 6 = Sunday)
+        if schedule.allowed_days is not None and schedule.allowed_days != 127:
+            if not (schedule.allowed_days & (1 << now_weekday)):
+                return False
+
         if not schedule.allowed_hours:
             return True
 
-        now_hour = timezone.localtime().hour
         for window in schedule.allowed_hours:
             start = window.get("start", 0)
             end = window.get("end", 24)
