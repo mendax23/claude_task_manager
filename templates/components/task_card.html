@@ -76,9 +76,11 @@
       <p class="text-sm font-medium text-gray-100 leading-tight line-clamp-1 flex-1"
          title="{{ task.title }}">{{ task.title }}</p>
       {% if task.task_type == 'evergreen' %}
-      <svg class="w-3 h-3 text-emerald-600/65 shrink-0" title="Evergreen — repeats on schedule" aria-label="Evergreen task" role="img" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
+      <span class="inline-flex items-center gap-0.5 shrink-0" title="Evergreen — repeats on schedule{% if task.recurrence_rule %} ({{ task.recurrence_rule }}){% endif %}">
+        <svg class="w-3 h-3 text-emerald-500/70 {% if task.status == 'in_progress' %}animate-spin-slow{% endif %}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </span>
       {% elif task.task_type == 'chained' %}
       <svg class="w-3 h-3 text-violet-600/60 shrink-0" title="Chained task" aria-label="Chained task" role="img" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
@@ -132,7 +134,11 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
       {% if task.completed_at %}<span>{{ task.completed_at|naturaltime }}</span>{% else %}<span>Completed</span>{% endif %}
-      {% if task.result_summary %}<span class="text-gray-600 truncate flex-1">· {{ task.result_summary|truncatechars:40 }}</span>{% endif %}
+      {% if task.task_type == 'evergreen' and task.next_run_at %}
+        <span class="text-emerald-600/50">· recurs {{ task.next_run_at|naturaltime }}</span>
+      {% elif task.result_summary %}
+        <span class="text-gray-600 truncate flex-1">· {{ task.result_summary|truncatechars:40 }}</span>
+      {% endif %}
       {% if task.last_done_tokens %}<span class="text-gray-700 font-mono ml-auto shrink-0">{{ task.last_done_tokens|floatformat:"0" }}t</span>{% endif %}
     </div>
     {% endif %}
@@ -164,6 +170,29 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
       <span>Paused</span>
+    </div>
+    {% endif %}
+
+    {# Evergreen info line (when not running and has recurrence) #}
+    {% if task.task_type == 'evergreen' and task.recurrence_rule and task.status != 'in_progress' and task.status != 'scheduled' %}
+    <div class="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-700/50">
+      <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <code class="font-mono text-[10px] text-emerald-600/40">{{ task.recurrence_rule }}</code>
+      {% if task.next_run_at %}<span class="text-gray-600">· next {{ task.next_run_at|naturaltime }}</span>{% endif %}
+      {% if task.dangerously_skip_permissions %}<span class="text-red-500/40 ml-auto text-[9px] font-mono">--skip-perms</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {# Loop progress indicator #}
+    {% if task.loop_count > 0 %}
+    <div class="mt-1.5 flex items-center gap-1.5 text-xs text-indigo-600/50">
+      <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      <span class="tabular-nums">Loop {{ task.loop_iterations_done }}/{{ task.loop_count }}</span>
+      {% if task.dangerously_skip_permissions %}<span class="text-red-500/40 ml-auto text-[9px] font-mono">--skip-perms</span>{% endif %}
     </div>
     {% endif %}
 

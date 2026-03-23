@@ -430,11 +430,15 @@ x-init="
 
     {# Type badge #}
     {% if task.task_type == 'evergreen' %}
-    <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-2 py-0.5 rounded-lg shrink-0" title="Evergreen">
-      <svg class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+    <span class="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800/30 px-2 py-0.5 rounded-lg shrink-0"
+          title="Evergreen{% if task.recurrence_rule %} ({{ task.recurrence_rule }}){% endif %}{% if task.next_run_at %} · next {{ task.next_run_at|naturaltime }}{% endif %}">
+      <svg class="w-3 h-3 inline {% if task.status == 'in_progress' %}animate-spin-slow{% endif %}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
       </svg>
     </span>
+    {% if task.dangerously_skip_permissions %}
+    <span class="text-[9px] text-red-400/60 bg-red-900/10 border border-red-800/15 px-1.5 py-0.5 rounded shrink-0" title="--dangerously-skip-permissions enabled">!</span>
+    {% endif %}
     {% elif task.task_type == 'chained' %}
     <span class="text-xs text-purple-400 bg-purple-900/20 border border-purple-800/30 px-2 py-0.5 rounded-lg shrink-0" title="Chained">
       <svg class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">

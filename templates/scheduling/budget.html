@@ -63,6 +63,23 @@
   </div>
 </div>
 
+{# ── Smart Utilization Insight ── #}
+{% if evergreen_waiting and budgets %}
+<div class="bg-emerald-950/20 border border-emerald-800/25 rounded-2xl p-5 mb-6 max-w-2xl">
+  <div class="flex items-center gap-2 mb-2">
+    <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+    </svg>
+    <h3 class="text-sm font-semibold text-emerald-300">Smart Token Utilization</h3>
+  </div>
+  <p class="text-xs text-gray-400 leading-relaxed">
+    <span class="text-emerald-400 font-medium">{{ evergreen_waiting }}</span> evergreen task{{ evergreen_waiting|pluralize }} waiting for their scheduled time.
+    When drain mode activates (end of week or session expiring), AgentQueue will automatically pull these forward
+    to use remaining tokens before the weekly reset.
+  </p>
+</div>
+{% endif %}
+
 {% for budget in budgets %}
 <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-4 max-w-2xl">
 
@@ -127,6 +144,25 @@
     <span class="text-[10px] text-gray-600 ml-auto font-mono" data-timeago="{{ budget.session_expires_at|date:'c' }}">{{ budget.session_expires_at|naturaltime }}</span>
   </div>
   {% endif %}
+
+  {# Drain mode / week progress indicator #}
+  <div class="flex items-center gap-3 mb-4">
+    <div class="flex-1">
+      <div class="flex items-center justify-between text-[10px] text-gray-600 mb-1">
+        <span>Week progress</span>
+        <span class="tabular-nums">{{ budget.pct_week_elapsed|floatformat:0 }}%</span>
+      </div>
+      <div class="h-1 bg-gray-800 rounded-full overflow-hidden">
+        <div class="h-full rounded-full bg-gray-600 transition-all duration-700"
+             style="width: {{ budget.pct_week_elapsed|floatformat:0 }}%"></div>
+      </div>
+    </div>
+    {% if budget.drain_active %}
+    <span class="text-[10px] font-medium text-amber-400 bg-amber-900/20 border border-amber-700/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+      Drain mode
+    </span>
+    {% endif %}
+  </div>
 
   <a href="{% url 'scheduling:budget_edit' budget.pk %}"
      class="text-xs text-gray-600 hover:text-indigo-400 transition-colors">

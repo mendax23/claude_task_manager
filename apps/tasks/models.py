@@ -98,6 +98,22 @@ class Task(TimeStampedModel):
     )
     chain_order = models.PositiveIntegerField(default=0)
 
+    # CLI execution options
+    dangerously_skip_permissions = models.BooleanField(
+        default=False,
+        help_text="Pass --dangerously-skip-permissions to Claude Code CLI (no tool confirmations)",
+    )
+
+    # Loop mode: re-run task automatically on completion
+    loop_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of times to re-run after completion (0 = no loop)",
+    )
+    loop_iterations_done = models.PositiveIntegerField(
+        default=0,
+        help_text="Iterations completed so far in the current loop",
+    )
+
     # Metadata
     estimated_tokens = models.PositiveIntegerField(default=0)
     tags = models.JSONField(default=list, blank=True)
@@ -130,9 +146,20 @@ class Task(TimeStampedModel):
             raise ValidationError({"chain_order": "Chain order must be zero or positive."})
 
     def mark_done(self, summary: str = ""):
-        self.status = TaskStatus.DONE
         self.completed_at = timezone.now()
         self.result_summary = summary
+
+        # Loop mode: if iterations remain, queue the next run instead of marking done
+        if self.loop_count > 0 and self.loop_iterations_done < self.loop_count:
+            self.loop_iterations_done += 1
+            self.status = TaskStatus.SCHEDULED
+            self.save(update_fields=[
+                "status", "completed_at", "result_summary",
+                "loop_iterations_done", "updated_at",
+            ])
+            return
+
+        self.status = TaskStatus.DONE
         self.save(update_fields=["status", "completed_at", "result_summary", "updated_at"])
 
     def mark_failed(self):

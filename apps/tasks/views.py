@@ -194,7 +194,10 @@ def task_trigger(request, pk):
 
         run = TaskRun.objects.create(task=task)
         task.status = TaskStatus.IN_PROGRESS
-        task.save(update_fields=["status", "updated_at"])
+        # Reset loop counter on manual trigger so loops can be restarted
+        if task.loop_count > 0:
+            task.loop_iterations_done = 0
+        task.save(update_fields=["status", "loop_iterations_done", "updated_at"])
 
     try:
         run_task.delay(task.pk, run.pk)
@@ -310,6 +313,9 @@ def task_duplicate(request, pk):
         recurrence_rule=task.recurrence_rule,
         estimated_tokens=task.estimated_tokens,
         tags=list(task.tags) if task.tags else [],
+        ignore_idle=task.ignore_idle,
+        dangerously_skip_permissions=task.dangerously_skip_permissions,
+        loop_count=task.loop_count,
     )
     messages.success(request, f'Task duplicated as "{new_task.title}"')
     return redirect("tasks:detail", pk=new_task.pk)

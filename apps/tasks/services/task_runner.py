@@ -84,6 +84,28 @@ class TaskRunner:
             self._record_token_usage(llm_config.pk, tokens_used)
             task.mark_done(summary=output[:500])
 
+            # Loop mode: if task was re-scheduled by mark_done(), trigger next run
+            if task.loop_count > 0 and task.status == TaskStatus.SCHEDULED:
+                logger.info(
+                    "Loop task %s: iteration %d/%d — triggering next run",
+                    task.pk, task.loop_iterations_done, task.loop_count
+                )
+                from apps.tasks.celery_tasks import run_task as run_task_celery
+                next_run = TaskRun.objects.create(task=task)
+                task.status = TaskStatus.IN_PROGRESS
+                task.save(update_fields=["status", "updated_at"])
+                try:
+                    run_task_celery.delay(task.pk, next_run.pk)
+                except Exception:
+                    import threading
+                    def _run_loop():
+                        from django.db import close_old_connections
+                        close_old_connections()
+                        TaskRunner().run(task, next_run)
+                    threading.Thread(target=_run_loop, daemon=True).start()
+                self._broadcast_status(task, "in_progress")
+                return  # don't broadcast "done" — loop continues
+
             if task.task_type == "evergreen":
                 task.reschedule_evergreen()
             elif task.task_type == "chained" and task.chain:
@@ -147,6 +169,8 @@ class TaskRunner:
         cmd_parts = [f"cd {shlex.quote(repo_path)}"]
 
         claude_cmd = f"cat {shlex.quote(prompt_file)} | {shlex.quote(cli_path)} -p --output-format stream-json"
+        if task.dangerously_skip_permissions:
+            claude_cmd += " --dangerously-skip-permissions"
         if llm_config.model_name:
             claude_cmd += f" --model {shlex.quote(llm_config.model_name)}"
 

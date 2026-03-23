@@ -54,6 +54,7 @@ def dashboard(request):
     running_count = sum(1 for t in tasks if t.status == TaskStatus.IN_PROGRESS)
     done_count = sum(1 for t in tasks if t.status == TaskStatus.DONE)
     scheduled_count = sum(1 for t in tasks if t.status == TaskStatus.SCHEDULED)
+    evergreen_count = sum(1 for t in tasks if t.task_type == "evergreen")
 
     # Weekly stats
     one_week_ago = timezone.now() - timedelta(days=7)
@@ -102,6 +103,7 @@ def dashboard(request):
         "running_count": running_count,
         "done_count": done_count,
         "scheduled_count": scheduled_count,
+        "evergreen_count": evergreen_count,
         "project_count": Project.objects.count(),
         "task_form": TaskForm(),
         "projects": Project.objects.all(),

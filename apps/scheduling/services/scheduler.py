@@ -82,14 +82,68 @@ class SmartScheduler:
     def _get_next_candidate(self) -> "Task | None":
         from apps.tasks.models import Task, TaskStatus
 
-        return (
+        now = timezone.now()
+
+        # Primary: tasks that are ready (backlog or scheduled with next_run_at passed)
+        candidate = (
             Task.objects.filter(status__in=[TaskStatus.BACKLOG, TaskStatus.SCHEDULED])
             .filter(
-                models.Q(next_run_at__isnull=True) | models.Q(next_run_at__lte=timezone.now())
+                models.Q(next_run_at__isnull=True) | models.Q(next_run_at__lte=now)
             )
             .order_by("-priority", "kanban_order")
             .first()
         )
+        if candidate:
+            return candidate
+
+        # Opportunistic: if budget is draining (end of week / session expiring),
+        # pull forward evergreen tasks that haven't run yet this cycle, even if
+        # their next_run_at is in the future. This uses remaining tokens before
+        # the weekly reset instead of wasting them.
+        if self._should_opportunistic_launch():
+            return (
+                Task.objects.filter(
+                    status=TaskStatus.SCHEDULED,
+                    task_type="evergreen",
+                    next_run_at__gt=now,
+                )
+                .order_by("-priority", "next_run_at")
+                .first()
+            )
+
+        return None
+
+    def _should_opportunistic_launch(self) -> bool:
+        """
+        Returns True if we should pull forward evergreen tasks because
+        tokens would otherwise go unused before the weekly reset.
+        """
+        from .budget_tracker import BudgetTracker
+        from apps.providers.models import LLMConfig
+
+        default_config = LLMConfig.objects.filter(is_default=True, is_active=True).first()
+        if not default_config:
+            return False
+
+        tracker = BudgetTracker()
+        status = tracker.get_status(default_config.pk)
+        if not status.get("configured"):
+            return False
+
+        pct_week = status.get("pct_week_elapsed", 0)
+        pct_used = status.get("pct_used", 0)
+        drain_mode = status.get("drain_mode", False)
+
+        # Opportunistic launch when:
+        # 1. Drain mode is active (session expiring or end of week)
+        #    AND there are meaningful tokens left (> 10% remaining)
+        # 2. OR: week is >80% done and <60% of budget used (underutilization)
+        if drain_mode and pct_used < 90:
+            return True
+        if pct_week > 80 and pct_used < 60:
+            return True
+
+        return False
 
     def _within_allowed_hours(self, schedule) -> bool:
         now = timezone.localtime()

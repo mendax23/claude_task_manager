@@ -69,6 +69,8 @@
     .card-shimmer      { animation: card-shimmer 5s ease-in-out infinite 1.5s; }
     .cursor-blink      { animation: cursor-blink 1.1s ease-in-out infinite; }
     .task-card         { animation: fadeSlideIn .25s ease-out; }
+    .animate-spin-slow { animation: spin-slow 3s linear infinite; }
+    @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
     /* ── Micro-interactions ── */
     @keyframes done-flash {

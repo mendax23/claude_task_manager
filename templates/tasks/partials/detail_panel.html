@@ -181,6 +181,19 @@
       {% if task.next_run_at %}<span>· next {{ task.next_run_at|naturaltime }}</span>{% endif %}
     </div>
     {% endif %}
+    {% if task.dangerously_skip_permissions or task.ignore_idle %}
+    <div class="flex items-center gap-2 mt-2 flex-wrap">
+      {% if task.dangerously_skip_permissions %}
+      <span class="text-[10px] font-medium text-red-400/70 bg-red-900/15 border border-red-800/20 px-2 py-0.5 rounded-full">--skip-permissions</span>
+      {% endif %}
+      {% if task.ignore_idle %}
+      <span class="text-[10px] font-medium text-emerald-400/70 bg-emerald-900/15 border border-emerald-800/20 px-2 py-0.5 rounded-full">ignore idle</span>
+      {% endif %}
+      {% if task.loop_count > 0 %}
+      <span class="text-[10px] font-medium text-indigo-400/70 bg-indigo-900/15 border border-indigo-800/20 px-2 py-0.5 rounded-full tabular-nums">loop {{ task.loop_iterations_done }}/{{ task.loop_count }}</span>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
 
   {# ── Console: live for in_progress, last run log otherwise ── #}

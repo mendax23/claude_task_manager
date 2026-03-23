@@ -195,6 +195,37 @@
                       focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-colors">
       </div>
 
+      {# Loop mode #}
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          Loop <span class="font-normal text-gray-600 normal-case tracking-normal">(re-run on completion)</span>
+        </label>
+        <div class="flex items-center gap-3">
+          <input type="number" name="loop_count" value="{{ form.loop_count.value|default:'0' }}"
+                 min="0" max="100" step="1"
+                 class="w-24 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white
+                        focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-colors tabular-nums">
+          <span class="text-xs text-gray-600">iterations (0 = no loop)</span>
+        </div>
+        <p class="text-[10px] text-gray-600 mt-1">Task will re-run automatically after each completion, up to this many times</p>
+      </div>
+
+      {# Skip permissions #}
+      <div class="flex items-center gap-3 pt-2">
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="dangerously_skip_permissions" class="sr-only peer"
+                 {% if form.dangerously_skip_permissions.value %}checked{% endif %}>
+          <div class="w-9 h-5 bg-gray-700 peer-focus:ring-2 peer-focus:ring-red-500/40 rounded-full peer
+                      peer-checked:bg-red-600 transition-colors after:content-[''] after:absolute after:top-0.5
+                      after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                      peer-checked:after:translate-x-full"></div>
+        </label>
+        <div>
+          <span class="text-sm text-gray-300">Skip permissions</span>
+          <p class="text-[10px] text-red-400/60">Passes --dangerously-skip-permissions to Claude CLI (no confirmations)</p>
+        </div>
+      </div>
+
     </div>
   </div>
 

@@ -46,9 +46,25 @@ def budget_overview(request):
         d = today - timedelta(days=i)
         daily_series.append({"day": d.strftime("%a"), "tokens": usage_by_day.get(d, 0)})
 
+    # Compute budget insights for each budget
+    from apps.scheduling.services.budget_tracker import BudgetTracker
+    tracker = BudgetTracker()
+    for budget in budgets:
+        status = tracker.get_status(budget.provider_id)
+        budget.pct_week_elapsed = status.get("pct_week_elapsed", 0)
+        budget.drain_active = status.get("drain_mode", False)
+        budget.tokens_could_use = max(0, budget.weekly_limit - budget.tokens_used_this_week)
+
+    # Count evergreen tasks that could be pulled forward
+    from apps.tasks.models import Task
+    evergreen_waiting = Task.objects.filter(
+        task_type="evergreen", status="scheduled", next_run_at__gt=timezone.now()
+    ).count()
+
     return render(request, "scheduling/budget.html", {
         "budgets": budgets,
         "daily_series": json.dumps(daily_series),
+        "evergreen_waiting": evergreen_waiting,
     })
 
 

@@ -13,7 +13,8 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = [
             "project", "title", "prompt", "task_type", "priority",
-            "llm_config", "recurrence_rule", "ignore_idle", "estimated_tokens",
+            "llm_config", "recurrence_rule", "ignore_idle",
+            "dangerously_skip_permissions", "loop_count", "estimated_tokens",
         ]
         widgets = {
             "prompt": forms.Textarea(attrs={"rows": 8, "placeholder": "Describe exactly what the AI should do..."}),
@@ -22,8 +23,15 @@ class TaskForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["loop_count"].required = False
         if self.instance and self.instance.pk and self.instance.tags:
             self.fields["tags_input"].initial = ", ".join(self.instance.tags)
+
+    def clean_loop_count(self):
+        val = self.cleaned_data.get("loop_count")
+        if val is None:
+            return 0
+        return val
 
     def clean_recurrence_rule(self):
         rule = self.cleaned_data.get("recurrence_rule", "").strip()
