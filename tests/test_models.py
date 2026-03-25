@@ -165,4 +165,6 @@ def test_task_reschedule_evergreen(task):
     task.reschedule_evergreen()
     task.refresh_from_db()
     assert task.next_run_at is not None
-    assert task.status == "scheduled"
+    # reschedule_evergreen only sets next_run_at — status stays unchanged
+    # schedule_evergreen_tasks celery beat moves to SCHEDULED when time comes
+    assert task.status == "backlog"

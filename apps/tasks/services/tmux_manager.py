@@ -102,13 +102,31 @@ class TmuxManager:
         except Exception:
             return False
 
+    def is_pane_idle(self, session_window: str) -> bool:
+        """Returns True if the pane's foreground process is just a shell (no task running)."""
+        if not session_window:
+            return True
+        try:
+            session_name, window_name = session_window.rsplit(":", 1)
+            session = self._find_session(session_name)
+            if not session:
+                return True
+            window = self._find_window(session, window_name)
+            if not window:
+                return True
+            pane = window.panes[0]
+            cmd = pane.pane_current_command or ""
+            return cmd in ("bash", "zsh", "sh", "fish", "")
+        except Exception:
+            return False
+
     def check_exit_marker(self, session_window: str, marker_prefix: str = "___AQ_EXIT_") -> int | None:
         """
         Scan the tmux pane for an exit marker like '___AQ_EXIT_0___'.
         Returns the exit code if found, or None if not yet present.
         """
         try:
-            output = self.capture_output(session_window, lines=30)
+            output = self.capture_output(session_window, lines=50)
             for line in output.split("\n"):
                 line = line.strip()
                 if line.startswith(marker_prefix) and line.endswith("___"):

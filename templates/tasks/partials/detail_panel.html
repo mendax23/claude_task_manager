@@ -1,12 +1,7 @@
 {% load humanize %}
 <div x-data="{ outputEl: null }"
      x-init="outputEl = $el.querySelector('#dp-output'); $watch(() => $store.agentqueue.activeTasks[{{ task.pk }}]?.outputLog, () => { if (outputEl) requestAnimationFrame(() => outputEl.scrollTop = outputEl.scrollHeight) })"
-     {% if task.status == 'in_progress' %}
-     hx-get="{% url 'tasks:detail' task.pk %}?partial=panel"
-     hx-trigger="every 5s"
-     hx-target="#task-detail-body"
-     hx-swap="innerHTML"
-     {% endif %}>
+     >
 
   {# ── Title & Status ── #}
   <div class="px-5 pt-5 pb-4 border-b border-gray-800/60">

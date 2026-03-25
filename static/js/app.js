@@ -38,8 +38,14 @@ document.addEventListener('alpine:init', () => {
           // (task completed/failed while WS was down)
           for (const [id, info] of Object.entries(this.activeTasks)) {
             if (info.status === 'in_progress' && !data.tasks[id]) {
-              delete this.activeTasks[id];
+              this.activeTasks[id] = { ...info, status: 'done' };
               changed = true;
+              // Refresh the card so it shows the done state
+              const card = document.getElementById(`task-card-${id}`);
+              if (card) {
+                htmx.trigger(card, 'server:update');
+                this._moveCardToColumn(card, 'done');
+              }
             }
           }
 

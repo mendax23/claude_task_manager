@@ -54,6 +54,10 @@ def budget_overview(request):
         budget.pct_week_elapsed = status.get("pct_week_elapsed", 0)
         budget.drain_active = status.get("drain_mode", False)
         budget.tokens_could_use = max(0, budget.weekly_limit - budget.tokens_used_this_week)
+        burn = tracker.get_burn_rate_status(budget.provider_id)
+        budget.burn_surplus = burn.get("surplus", False)
+        budget.projected_waste_pct = burn.get("projected_waste_pct", 0)
+        budget.hours_until_reset = burn.get("hours_until_reset", 0)
 
     # Count evergreen tasks that could be pulled forward
     from apps.tasks.models import Task

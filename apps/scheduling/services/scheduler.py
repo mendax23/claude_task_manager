@@ -117,6 +117,10 @@ class SmartScheduler:
         """
         Returns True if we should pull forward evergreen tasks because
         tokens would otherwise go unused before the weekly reset.
+
+        Uses burn-rate analysis: compares the user's actual token consumption
+        rate this week against the available rate. If projected waste exceeds
+        20% of the weekly limit, triggers opportunistic launches.
         """
         from .budget_tracker import BudgetTracker
         from apps.providers.models import LLMConfig
@@ -130,17 +134,19 @@ class SmartScheduler:
         if not status.get("configured"):
             return False
 
-        pct_week = status.get("pct_week_elapsed", 0)
-        pct_used = status.get("pct_used", 0)
-        drain_mode = status.get("drain_mode", False)
-
-        # Opportunistic launch when:
-        # 1. Drain mode is active (session expiring or end of week)
-        #    AND there are meaningful tokens left (> 10% remaining)
-        # 2. OR: week is >80% done and <60% of budget used (underutilization)
-        if drain_mode and pct_used < 90:
+        # Explicit drain mode (session expiring or end-of-week) always triggers
+        if status.get("drain_mode") and status.get("pct_used", 0) < 90:
             return True
-        if pct_week > 80 and pct_used < 60:
+
+        # Burn-rate analysis: project forward and check if tokens would go unused
+        burn = tracker.get_burn_rate_status(default_config.pk)
+        if burn.get("surplus"):
+            logger.info(
+                "Opportunistic launch: projected %.1f%% token waste (%.0f tokens/hr available vs %.0f avg usage)",
+                burn.get("projected_waste_pct", 0),
+                burn.get("tokens_per_hour_available", 0),
+                burn.get("tokens_per_hour_avg", 0),
+            )
             return True
 
         return False

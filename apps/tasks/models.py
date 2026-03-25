@@ -167,15 +167,16 @@ class Task(TimeStampedModel):
         self.save(update_fields=["status", "updated_at"])
 
     def reschedule_evergreen(self):
-        """Compute next_run_at from recurrence_rule and reset to SCHEDULED."""
+        """Compute next_run_at from recurrence_rule. Task stays in current status
+        (DONE or FAILED) — schedule_evergreen_tasks celery beat will move it to
+        SCHEDULED when next_run_at arrives."""
         if not self.recurrence_rule:
             return
         try:
             from croniter import croniter
             cron = croniter(self.recurrence_rule, timezone.now())
             self.next_run_at = cron.get_next(timezone.datetime)
-            self.status = TaskStatus.SCHEDULED
-            self.save(update_fields=["next_run_at", "status", "updated_at"])
+            self.save(update_fields=["next_run_at", "updated_at"])
         except Exception:
             pass
 

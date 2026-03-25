@@ -162,7 +162,26 @@
       Drain mode
     </span>
     {% endif %}
+    {% if budget.burn_surplus %}
+    <span class="text-[10px] font-medium text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 px-2 py-0.5 rounded-full whitespace-nowrap tabular-nums"
+          title="Projected {{ budget.projected_waste_pct }}% waste — evergreen tasks will be pulled forward">
+      ~{{ budget.projected_waste_pct }}% surplus
+    </span>
+    {% endif %}
   </div>
+
+  {% if budget.burn_surplus %}
+  <div class="flex items-center gap-2 text-xs bg-emerald-950/20 border border-emerald-800/20 rounded-xl px-3 py-2 mb-4">
+    <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+    </svg>
+    <span class="text-emerald-300/80">
+      At current pace, ~{{ budget.projected_waste_pct }}% of tokens will go unused before reset
+      ({{ budget.hours_until_reset|floatformat:0 }}h remaining).
+      Evergreen tasks will be auto-triggered to use the surplus.
+    </span>
+  </div>
+  {% endif %}
 
   <a href="{% url 'scheduling:budget_edit' budget.pk %}"
      class="text-xs text-gray-600 hover:text-indigo-400 transition-colors">

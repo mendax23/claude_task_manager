@@ -108,6 +108,51 @@ class BudgetTracker:
         # Reset if the last reset was before the most recent valid reset point
         return budget.last_reset_at < candidate_dt
 
+    def get_burn_rate_status(self, llm_config_id: int) -> dict:
+        """
+        Calculates whether tokens are being underutilized based on burn rate.
+        Returns a dict with:
+          - tokens_per_hour_available: how many tokens/hour remain until reset
+          - tokens_per_hour_avg: average user consumption rate this week
+          - surplus: True if projected waste > 20% of weekly limit
+          - hours_until_reset: hours until next budget reset
+        """
+        from apps.scheduling.models import TokenBudget
+
+        try:
+            budget = TokenBudget.objects.get(provider_id=llm_config_id)
+        except TokenBudget.DoesNotExist:
+            return {"surplus": False}
+
+        pct_week = self._pct_week_elapsed(budget)
+        if pct_week < 1:
+            return {"surplus": False}
+
+        # Hours elapsed and remaining in the week
+        elapsed_hours = max(1, (pct_week / 100) * 7 * 24)
+        remaining_hours = max(1, ((100 - pct_week) / 100) * 7 * 24)
+
+        # User's actual consumption rate this week
+        tokens_per_hour_avg = budget.tokens_used_this_week / elapsed_hours
+
+        # Available tokens per hour if we want to use everything before reset
+        tokens_per_hour_available = budget.remaining / remaining_hours
+
+        # Surplus exists when the available rate significantly exceeds usage rate
+        # i.e. the user won't use all tokens at their current pace
+        projected_usage = tokens_per_hour_avg * remaining_hours
+        projected_waste = budget.remaining - projected_usage
+        surplus = projected_waste > (budget.weekly_limit * 0.20)  # >20% would go unused
+
+        return {
+            "surplus": surplus,
+            "tokens_per_hour_available": round(tokens_per_hour_available),
+            "tokens_per_hour_avg": round(tokens_per_hour_avg),
+            "projected_waste_pct": round((projected_waste / budget.weekly_limit) * 100, 1) if budget.weekly_limit else 0,
+            "hours_until_reset": round(remaining_hours, 1),
+            "remaining": budget.remaining,
+        }
+
     def _pct_week_elapsed(self, budget) -> float:
         if not budget.last_reset_at:
             return 0.0

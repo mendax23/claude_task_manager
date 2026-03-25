@@ -65,6 +65,43 @@ def check_budget_reset():
 
 
 @shared_task
+def cleanup_finished_tmux():
+    """Called every 10 min — removes tmux windows from completed/failed tasks and temp files."""
+    import glob
+    import os
+    from datetime import timedelta
+    from apps.tasks.models import Task, TaskStatus
+    from apps.tasks.services.tmux_manager import TmuxManager
+    from django.utils import timezone as tz
+
+    tmux = TmuxManager()
+    cutoff = tz.now() - timedelta(minutes=10)
+
+    # Find completed tasks that still have tmux windows
+    finished = Task.objects.filter(
+        status__in=[TaskStatus.DONE, TaskStatus.FAILED, TaskStatus.CANCELLED],
+        tmux_session__gt="",
+        updated_at__lt=cutoff,
+    )
+    for task in finished:
+        if tmux.is_alive(task.tmux_session):
+            tmux.kill_session(task.tmux_session)
+            logger.debug("Cleaned up tmux window for task %s", task.pk)
+        task.tmux_session = ""
+        task.save(update_fields=["tmux_session", "updated_at"])
+
+    # Clean up temp output/prompt files older than 1 hour
+    one_hour_ago = tz.now() - timedelta(hours=1)
+    for pattern in ["/tmp/aq_task_*.txt", "/tmp/aq_task_*.json", "/tmp/aq_prompt_*.txt"]:
+        for path in glob.glob(pattern):
+            try:
+                if os.path.getmtime(path) < one_hour_ago.timestamp():
+                    os.remove(path)
+            except OSError:
+                pass
+
+
+@shared_task
 def prune_idle_events(days: int = 7):
     """Called daily — deletes IdleEvent records older than N days."""
     from datetime import timedelta

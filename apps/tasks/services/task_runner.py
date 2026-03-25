@@ -175,8 +175,9 @@ class TaskRunner:
             claude_cmd += f" --model {shlex.quote(llm_config.model_name)}"
 
         # tee captures JSON for parsing; exit marker signals completion
+        # pipefail ensures $? reflects Claude's exit code, not tee's
         full_cmd = (
-            f"{' && '.join(cmd_parts)} && {claude_cmd} 2>&1"
+            f"set -o pipefail; {' && '.join(cmd_parts)} && {claude_cmd} 2>&1"
             f" | tee {shlex.quote(json_output_file)}"
             f"; echo '___AQ_EXIT_'$?'___'"
         )
@@ -258,6 +259,7 @@ class TaskRunner:
         """
         Parse Claude Code stream-json output lines.
         Returns (extracted_text, tokens_used_if_final).
+        Raises RuntimeError if the result event indicates an error.
         """
         text_parts = []
         tokens = 0
@@ -286,6 +288,11 @@ class TaskRunner:
                 result_text = event.get("result", "")
                 if result_text and isinstance(result_text, str):
                     text_parts.append(result_text)
+                # Detect Claude Code errors from the result event
+                if event.get("is_error"):
+                    raise RuntimeError(
+                        f"Claude Code error: {result_text[:500] if result_text else 'unknown error'}"
+                    )
             # Fallback: raw Anthropic SSE format
             elif event_type == "content_block_delta":
                 text = event.get("delta", {}).get("text", "")
